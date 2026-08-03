@@ -48,9 +48,10 @@ set include=%include_glfw% %include_curl%
 set libs=%lib_glfw% %lib_curl%
 set libs_flags=-lglfw3 -lgdi32 -lopengl32 -lcurl
 set defines=-D_DEBUG
+set flags=-Wall -Wextra
 
 if  "%1"=="d"  (
-    call %compielr% -o build\debug\main.exe -ggdb %sources% %include% %libs% %libs_flags% %defines% 
+    call %compielr% -o build\debug\main.exe -ggdb %sources% %include% %include_dirs% %libs% %libs_flags% %defines% %flags% 
     if %ERRORLEVEL% neq 0 (
         echo Build failed!
     ) else (
@@ -60,7 +61,7 @@ if  "%1"=="d"  (
 ) 
 
 if "%1"=="r" (
-    call %compielr% -o build\release\main.exe %sources% %include% %libs% %libs_flags% %defines% 
+    call %compielr% -o build\release\main.exe %sources% %include% %include_dirs% %libs% %libs_flags% %defines% %flags%
     if %ERRORLEVEL% neq 0 (
         echo Build failed!
     ) else (
