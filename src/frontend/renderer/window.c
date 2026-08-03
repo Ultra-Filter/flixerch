@@ -174,7 +174,7 @@ static u8 key_to_index(u32 key_code)
 
 static u8 mouse_btn_to_index(u8 btn_code)
 {
-    if (btn_code > MOUSE_BUTTON_LAST) 
+    if (btn_code > MOUSE_BUTTON_COUNT) 
     {
         UNREACHABLE("Mouse button code not exists!");
         return 0U;
@@ -215,6 +215,20 @@ static void window_callback_mouse_pressed(GLFWwindow* window, int button, int ac
                  action == GLFW_RELEASE ? KEY_STATE_RELEASE :
                  KEY_STATE_UP;
     if (index < MOUSE_BUTTON_COUNT) _input.mouse.btns[ index ] = state;
+}
+
+static void window_scroll_callback(GLFWwindow * win, f64 offsetx, f64 offsety)
+{
+    UNUSED(offsetx); UNUSED(win);
+    _input.mouse.scroll_offset = offsety;
+}
+
+void init_openGL(void)
+{
+    glViewport(0,0,_window.width, _window.height);
+    glEnable(GL_SCISSOR_TEST);
+    glEnable(GL_DEPTH_TEST);
+    // TODO: glEnable(stuff)...
 }
 
 void window_update(void)
@@ -269,7 +283,7 @@ bool window_init(u32 width, u32 height, const char* title)
     glfwSetFramebufferSizeCallback(_window.handle, window_size_changed_callback);
     glfwSetKeyCallback(_window.handle, window_key_pressed_callback);
     glfwSetMouseButtonCallback(_window.handle, window_callback_mouse_pressed);
-
+    glfwSetScrollCallback(_window.handle, window_scroll_callback);
 
     // Init openGL
     glfwMakeContextCurrent(_window.handle);
@@ -279,10 +293,8 @@ bool window_init(u32 width, u32 height, const char* title)
         return false;
     }
     
+    init_openGL();
    
-    // TODO: glEnable(stuff)...
-    glViewport(0,0,_window.width, _window.height);
-    
     return true;
 }
 
@@ -364,7 +376,7 @@ void window_destroy(void)
 void window_clear_screen(void)
 {
     glClearColor(1.0F, 1.0F, 1.0F, 1.0F);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 u32 get_mouse_x(void)
