@@ -1,22 +1,17 @@
-#include "window.h"
+#include "frontend/renderer/window.h"
+#include "backend/web/web_client.h"
+#include "core/utils/job_system.h"
 
-static void initiate(void);
-static void mainloop(void);
-static void shutdown(void);
-
-int main (void)
-{
-    initiate();
-    mainloop();
-    shutdown();
-
-    return 0;
-}
 
 static void initiate(void)
 {
     if (!window_init(1920, 720, "Hello"))
     {
+        exit(EXIT_FAILURE);
+    }
+    if (!web_client_init())
+    {
+        LOG_ERROR("Failed to initialize web client");
         exit(EXIT_FAILURE);
     }
 }
@@ -42,5 +37,15 @@ static void mainloop(void)
 
 static void shutdown(void)
 {
+    web_client_shutdown();
     window_destroy();
+}
+
+int main (void)
+{
+    initiate();
+    mainloop();
+    shutdown();
+
+    return 0;
 }
