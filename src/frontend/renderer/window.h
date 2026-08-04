@@ -1,5 +1,5 @@
 #pragma once
-#include "defines.h"
+#include "../../core/utils/defines.h"
 
 #define KEY_SPACE              32U
 #define KEY_APOSTROPHE         39U  /* ' */
