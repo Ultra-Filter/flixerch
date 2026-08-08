@@ -146,6 +146,7 @@ bool is_mouse_button_pressed  (u8 button_code);
 bool is_mouse_button_released (u8 button_code);
 bool is_mouse_button_down     (u8 button_code);
 bool is_mouse_button_up       (u8 button_code);
+void window_prepare           (void);
 void window_update            (void); // Update window last in main loop
 void window_destroy           (void);
 void window_clear_screen      (void);

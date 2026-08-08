@@ -226,8 +226,8 @@ static void window_scroll_callback(GLFWwindow * win, f64 offsetx, f64 offsety)
 void init_openGL(void)
 {
     glViewport(0,0,_window.width, _window.height);
-    glEnable(GL_SCISSOR_TEST);
-    glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_SCISSOR_TEST);
+    // glEnable(GL_DEPTH_TEST);
     // TODO: glEnable(stuff)...
 }
 
@@ -250,7 +250,7 @@ void window_update(void)
         _input.mouse.btns[i] == KEY_STATE_RELEASE ? KEY_STATE_UP   :
         _input.mouse.btns[i]; 
     }
-
+    glViewport(0, 0,_window.width, _window.height);
     glfwPollEvents();
     glfwSwapBuffers(_window.handle); 
 }
@@ -277,7 +277,8 @@ bool window_init(u32 width, u32 height, const char* title)
     
     // TODO: add required hints
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-    glfwMaximizeWindow(_window.handle); // ??
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    // glfwMaximizeWindow(_window.handle); // ??
     
     // TODO: set callbacks
     glfwSetFramebufferSizeCallback(_window.handle, window_size_changed_callback);
@@ -367,6 +368,11 @@ bool is_mouse_button_up(u8 button_code)
     return false;
 }
 
+void window_prepare(void)
+{
+    glfwShowWindow(_window.handle);
+}
+
 void window_destroy(void)
 {
     glfwDestroyWindow(_window.handle);
@@ -375,8 +381,8 @@ void window_destroy(void)
 
 void window_clear_screen(void)
 {
-    glClearColor(1.0F, 1.0F, 1.0F, 1.0F);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.2F, 0.2F, 0.2F, 1.0F);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 u32 get_mouse_x(void)
