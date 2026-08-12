@@ -28,7 +28,7 @@ typedef enum key_state {
 static struct {
     // mouse data
     struct {
-        u32 x, y; 
+        f64 x, y; 
         f64 scroll_offset;
         _key btns [ MOUSE_BUTTON_COUNT ];
     } mouse;
@@ -223,36 +223,23 @@ static void window_scroll_callback(GLFWwindow * win, f64 offsetx, f64 offsety)
     _input.mouse.scroll_offset = offsety;
 }
 
+static void window_mouse_position_callbak(GLFWwindow* win, f64 xpos, f64 ypos)
+{
+    UNUSED(win);
+    _input.mouse.x = xpos;
+    _input.mouse.y = ypos;
+}
+
 void init_openGL(void)
 {
     glViewport(0,0,_window.width, _window.height);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
     // glEnable(GL_SCISSOR_TEST);
-    // glEnable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LINE_SMOOTH);
+    glEnable(GL_MULTISAMPLE);  
     // TODO: glEnable(stuff)...
-}
-
-void window_update(void)
-{
-    _time.current_time = glfwGetTime();
-    _time.delta_time   = _time.current_time - _time.last_time;
-    _time.last_time    = _time.current_time;
-    
-    for (u8 i = 0; i < KEY_COUNT; i++)
-    {
-        _input.keys[i] = _input.keys[i] == KEY_STATE_PRESSED ? KEY_STATE_DOWN :
-        _input.keys[i] == KEY_STATE_RELEASE ? KEY_STATE_UP   :
-        _input.keys[i];
-    }
-    
-    for (u8 i = 0; i < MOUSE_BUTTON_COUNT; i++)
-    {
-        _input.mouse.btns[i] = _input.mouse.btns[i] == KEY_STATE_PRESSED ? KEY_STATE_DOWN :
-        _input.mouse.btns[i] == KEY_STATE_RELEASE ? KEY_STATE_UP   :
-        _input.mouse.btns[i]; 
-    }
-    glViewport(0, 0,_window.width, _window.height);
-    glfwPollEvents();
-    glfwSwapBuffers(_window.handle); 
 }
 
 bool window_init(u32 width, u32 height, const char* title)
@@ -278,6 +265,11 @@ bool window_init(u32 width, u32 height, const char* title)
     // TODO: add required hints
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    // Using openGL version 330 core
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_SAMPLES, 4);
     // glfwMaximizeWindow(_window.handle); // ??
     
     // TODO: set callbacks
@@ -285,6 +277,7 @@ bool window_init(u32 width, u32 height, const char* title)
     glfwSetKeyCallback(_window.handle, window_key_pressed_callback);
     glfwSetMouseButtonCallback(_window.handle, window_callback_mouse_pressed);
     glfwSetScrollCallback(_window.handle, window_scroll_callback);
+    glfwSetCursorPosCallback(_window.handle, window_mouse_position_callbak);
 
     // Init openGL
     glfwMakeContextCurrent(_window.handle);
@@ -373,6 +366,12 @@ void window_prepare(void)
     glfwShowWindow(_window.handle);
 }
 
+void window_swap_buffers(void)
+{
+    glfwSwapInterval(1);
+    glfwSwapBuffers(_window.handle); 
+}
+
 void window_destroy(void)
 {
     glfwDestroyWindow(_window.handle);
@@ -382,17 +381,43 @@ void window_destroy(void)
 void window_clear_screen(void)
 {
     glClearColor(0.2F, 0.2F, 0.2F, 1.0F);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-u32 get_mouse_x(void)
+void time_update(void)
+{
+    _time.current_time = glfwGetTime();
+    _time.delta_time   = _time.current_time - _time.last_time;
+    _time.last_time    = _time.current_time;
+}
+
+void input_update(void)
+{
+    for (u8 i = 0; i < KEY_COUNT; i++)
+    {
+        _input.keys[i] = _input.keys[i] == KEY_STATE_PRESSED ? KEY_STATE_DOWN :
+        _input.keys[i] == KEY_STATE_RELEASE ? KEY_STATE_UP   :
+        _input.keys[i];
+    }
+    
+    for (u8 i = 0; i < MOUSE_BUTTON_COUNT; i++)
+    {
+        _input.mouse.btns[i] = _input.mouse.btns[i] == KEY_STATE_PRESSED ? KEY_STATE_DOWN :
+        _input.mouse.btns[i] == KEY_STATE_RELEASE ? KEY_STATE_UP   :
+        _input.mouse.btns[i]; 
+    }
+    glfwWaitEvents();
+    glViewport(0, 0,_window.width, _window.height);
+}
+
+f64 get_mouse_x(void)
 {
     return _input.mouse.x;
 }
 
-u32 get_mouse_y(void)
+f64 get_mouse_y(void)
 {
-    return _input.mouse.x;
+    return  _input.mouse.y;
 }
 
 u32 get_window_width(void)

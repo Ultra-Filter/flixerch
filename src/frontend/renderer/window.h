@@ -1,5 +1,5 @@
 #pragma once
-#include "../../core/utils/defines.h"
+#include "core/utils/defines.h"
 
 #define KEY_SPACE              32U
 #define KEY_APOSTROPHE         39U  /* ' */
@@ -147,11 +147,13 @@ bool is_mouse_button_released (u8 button_code);
 bool is_mouse_button_down     (u8 button_code);
 bool is_mouse_button_up       (u8 button_code);
 void window_prepare           (void);
-void window_update            (void); // Update window last in main loop
+void window_swap_buffers      (void); 
 void window_destroy           (void);
 void window_clear_screen      (void);
-u32  get_mouse_x              (void);
-u32  get_mouse_y              (void);
+void time_update              (void);
+void input_update             (void);
+f64  get_mouse_x              (void);
+f64  get_mouse_y              (void);
 u32  get_window_width         (void);
 u32  get_window_height        (void);
 f64  get_mouse_scroll_offset  (void);
