@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include "../../core/utils/defines.h"
+#include "core/utils/defines.h"
 
 typedef struct rgba_t 
 {
