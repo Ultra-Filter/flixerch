@@ -127,6 +127,16 @@ vec2_t vec2_map(vec2_t v, vec2_t a, vec2_t b, vec2_t target_a, vec2_t target_b)
     return result;
 }
 
+vec2_t vec2_transform(mat2x2_t m, vec2_t v)
+{
+    vec2_t result = { 0 };
+
+    result.x = m.a11 * v.x + m.a12 * v.y;
+    result.y = m.a21 * v.x + m.a22 * v.y;
+
+    return result;
+}
+
 f32 vec2_length(vec2_t v)
 {
     f32 length_sqr = v.x * v.x + v.y * v.y;
@@ -333,6 +343,16 @@ vec3_t vec3_backward(void)
     return vec3(0, 0, 1);
 }
 
+vec3_t vec3_transform(mat3x3_t m, vec3_t v)
+{
+    vec3_t result = { 0 };
+
+    result.x = v.x * m.a11 + v.y * m.a12 + v.z * m.a13;
+    result.y = v.x * m.a21 + v.y * m.a22 + v.z * m.a23;
+    result.z = v.x * m.a31 + v.y * m.a32 + v.z * m.a33;
+
+    return result;
+}
 
 vec4_t vec4(f32 x, f32 y, f32 z, f32 w)
 {
@@ -386,6 +406,28 @@ f32 vec4_dot(vec4_t v1, vec4_t v2)
     f32 result = 0.0f;
 
     result = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
+
+    return result;
+}
+
+mat2x2_t mat2x2_unit(void)
+{
+    mat2x2_t result = { 0 };
+
+    result.a11 = 1.0F; result.a12 = 0.0F;
+    result.a21 = 0.0F; result.a22 = 1.0F;
+
+    return result;
+}
+
+mat2x2_t mat2x2_rotation_matrix(f32 rotation)
+{
+    mat2x2_t result = { 0 };
+
+    result.a11 = cosf(rotation);
+    result.a12 = sinf(rotation);
+    result.a21 = -sinf(rotation);
+    result.a22 = cosf(rotation);
 
     return result;
 }
@@ -586,6 +628,65 @@ mat3x3_t mat3x3_rotation_along(vec3_t rotation_axis, f32 angle)
     };
 
     return rotation;
+}
+
+mat3x3_t mat3x3_translate_matrix(mat3x3_t m, vec2_t translation)
+{
+    mat3x3_t result = { 0 };
+
+    mat3x3_t translation_matrix = 
+    {
+        1.0F, 0.0F, translation.x,
+        0.0F, 1.0F, translation.y,
+        0.0F, 0.0F, 1.0F,
+    };
+
+    result = mat3x3_mul(m, translation_matrix);
+
+    return result;
+}
+
+mat3x3_t mat3x3_rotate_matrix(mat3x3_t m, f32 rotation)
+{
+    mat3x3_t result = { 0 };
+
+    mat3x3_t rotation_matrix = 
+    {
+         cosf(rotation), sinf(rotation), 0.0F,
+        -sinf(rotation), cosf(rotation), 0.0F,
+         0.0F          , 0.0F          , 1.0F
+    };
+
+    result = mat3x3_mul(m, rotation_matrix);
+
+    return result;
+}
+
+mat3x3_t mat3x3_scale_matrix(mat3x3_t m, vec2_t scale)
+{
+    mat3x3_t result = { 0 };
+
+    mat3x3_t scale_matrix = 
+    {
+        scale.x, 0.0F   , 0.0F,
+        0.0F   , scale.y, 0.0F,
+        0.0F   , 0.0F   , 1.0F
+    };
+
+    result = mat3x3_mul(m, scale_matrix);
+
+    return result;
+}
+
+mat3x3_t mat3x3_orthogonal_projection(f32 w, f32 h)
+{
+    mat3x3_t result = { 0 };
+
+    result.a11 = 2.0F / w; result.a12 = 0.0F    ; result.a13 = 1.0F;
+    result.a11 = 0.0F    ; result.a12 = 2.0F / h; result.a13 = 1.0F;
+    result.a11 = 0.0F    ; result.a12 = 0.0F    ; result.a13 = 1.0F;
+
+    return result;
 }
 
 #define mat4x4_foreach(m,it) for( f32 * ptr = (f32* )&(m), it = * ptr; ptr < (f32* )&(m) + 16; *ptr = it, ptr++, it = * ptr )
@@ -918,6 +1019,21 @@ mat4x4_t mat4x4_inverse(mat4x4_t m)
     return result;
 }
 
+mat4x4_t mat4x4_orthogonal(f32 left, f32 right, f32 bottom, f32 top, f32 far, f32 near)
+{
+    mat4x4_t result = { 0 };
+
+    result = (mat4x4_t)
+    {
+        2.0F / (right - left), 0.0F                 , 0.0F                , -(right + left  ) / (right - left  ),
+        0.0F                 , 2.0F / (top - bottom), 0.0F                , -(top   + bottom) / (top   - bottom),
+        0.0F                 , 0.0F                 , -2.0F / (far - near), -(far   + near  ) / (far   - near  ),
+        0.0F                 , 0.0F                 , 0.0F                , 1.0F                                
+    };
+
+    return result;
+}
+
 vec4_t mat4x4_get_row(mat4x4_t m, int row_index)
 {
     vec4_t result = { 0 };
@@ -1005,4 +1121,81 @@ f32 mat4x4_trace(mat4x4_t m)
     f32 trace = m.a11 + m.a22 + m.a33 + m.a44;
 
     return trace;
+}
+
+rectangle_t rectangle(f32 x, f32 y, f32 w, f32 h, f32 r)
+{
+    rectangle_t result = { 0 };
+
+    result.x = x;
+    result.y = y;
+    result.w = w;
+    result.h = h;
+    result.r = r;
+
+    return result;
+}
+
+rectangle_t rectangle_get_padded_rect(rectangle_t src, f32 padding)
+{
+    rectangle_t result = { 0 };
+
+    result.x = src.x - padding;
+    result.y = src.y - padding;
+    result.w = src.w + 2 * padding;
+    result.h = src.h + 2 * padding;
+    result.r = src.r;
+
+    return result;
+}
+
+rectangle_t rectangle_scale_around_top_left(rectangle_t src, vec2_t scale)
+{
+    rectangle_t result = { 0 };
+    
+    result.x = src.x;
+    result.y = src.y;
+    result.w = src.w * scale.x;
+    result.h = src.h * scale.y;
+    result.r = src.r;
+    
+    return result;
+}
+
+rectangle_t rectangle_scale_around_center(rectangle_t src, vec2_t scale)
+{
+    rectangle_t result = { 0 };
+    
+    result.w = scale.x * src.w;
+    result.h = scale.y * src.h;
+
+    result.x = src.x - (result.w - src.w);
+    result.y = src.y - (result.h - src.h);
+    
+    result.r = src.r;
+    
+    return result;
+}
+
+bool rectangle_is_point_inside(rectangle_t rect, vec2_t p)
+{
+    vec2_t center = vec2(rect.x + rect.w / 2, rect.y + rect.h / 2);
+    vec2_t t = p;
+    t = vec2_sub(t, center);
+    vec2_t cis = vec2(cosf(-rect.r), sinf(-rect.r));
+    t = vec2(t.x * cis.x - t.y * cis.y, t.x * cis.y + t.y * cis.x);
+    t = vec2_add(t, center);
+
+    return t.x <= rect.x + rect.w && t.x >= rect.x && t.y <= rect.y + rect.h && t.y >= rect.y;
+}
+
+transform2D_s transform2D(vec2_t position, vec2_t scale, f32 rotation)
+{
+    transform2D_s result = { 0 };
+
+    result.position = position;
+    result.scale    = scale;
+    result.rotation = rotation;
+
+    return result;
 }

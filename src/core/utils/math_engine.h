@@ -1,41 +1,55 @@
 #pragma once
 #include "defines.h"
+#include <math.h>
+#define PI 3.1415927F
 
 typedef struct vec2_t
 {
-    float x, y;
+    f32 x, y;
 } vec2_t;
 
 typedef struct vec3_t
 {
-    float x, y, z;
+    f32 x, y, z;
 } vec3_t;
 
 typedef struct vec4_t
 {
-    float x, y, z, w;
+    f32 x, y, z, w;
 } vec4_t;
 
 typedef struct mat2x2_t
 {
-    float a11, a12;
-    float a21, a22;
+    f32 a11, a12;
+    f32 a21, a22;
 } mat2x2_t;
 
 typedef struct mat3x3_t
 {
-    float a11, a12, a13;
-    float a21, a22, a23;
-    float a31, a32, a33;
+    f32 a11, a12, a13;
+    f32 a21, a22, a23;
+    f32 a31, a32, a33;
 } mat3x3_t;
 
 typedef struct mat4x4_t
 {
-    float a11, a12, a13, a14;
-    float a21, a22, a23, a24;
-    float a31, a32, a33, a34;
-    float a41, a42, a43, a44;
+    f32 a11, a12, a13, a14;
+    f32 a21, a22, a23, a24;
+    f32 a31, a32, a33, a34;
+    f32 a41, a42, a43, a44;
 } mat4x4_t;
+
+typedef struct rectangle_t {
+    f32 x, y; // top left
+    f32 w, h;
+    f32 r; // rotation
+} rectangle_t;
+
+typedef struct transform2D_s {
+    vec2_t position;
+    vec2_t scale;
+    f32    rotation;
+} transform2D_s;
 
 vec2_t vec2(f32 x, f32 y);
 vec2_t vec2v(f32 v);
@@ -49,6 +63,7 @@ vec2_t vec2_sub_val(vec2_t v, f32 s);
 vec2_t vec2_normalize(vec2_t v);
 vec2_t vec2_linear_combination(vec2_t v1, f32 alpha1, vec2_t v2, f32 alpha2);
 vec2_t vec2_map(vec2_t v, vec2_t a, vec2_t b, vec2_t target_a, vec2_t target_b);
+vec2_t vec2_transform(mat2x2_t m, vec2_t v);
 f32    vec2_length(vec2_t v);
 f32    vec2_length_sqr(vec2_t v);
 f32    vec2_distance(vec2_t v1, vec2_t v2);
@@ -78,12 +93,16 @@ vec3_t vec3_right(void);
 vec3_t vec3_left(void);
 vec3_t vec3_forward(void);
 vec3_t vec3_backward(void);
+vec3_t vec3_transform(mat3x3_t m, vec3_t v);
 
 vec4_t vec4(f32 x, f32 y, f32 z, f32 w);
 vec4_t vec4v(f32 val);
 vec4_t vec4_from_vec3_1(vec3_t v);
 vec4_t vec4_transform(mat4x4_t m, vec4_t v);
 f32    vec4_dot(vec4_t v1, vec4_t v2);
+
+mat2x2_t mat2x2_unit(void);
+mat2x2_t mat2x2_rotation_matrix(f32 rotation);
 
 mat3x3_t mat3x3_unit(void);
 mat3x3_t mat3x3(int val);
@@ -98,6 +117,10 @@ mat3x3_t mat3x3_rotation_x(f32 angle);
 mat3x3_t mat3x3_rotation_y(f32 angle);
 mat3x3_t mat3x3_rotation_z(f32 angle);
 mat3x3_t mat3x3_rotation_along(vec3_t rotation_axis, f32 angle);
+mat3x3_t mat3x3_translate_matrix(mat3x3_t m, vec2_t translation); 
+mat3x3_t mat3x3_rotate_matrix(mat3x3_t m, f32 rotation); 
+mat3x3_t mat3x3_scale_matrix(mat3x3_t m, vec2_t scale); 
+mat3x3_t mat3x3_orthogonal_projection(f32 w, f32 h);
 
 mat4x4_t mat4x4_unit(void);
 mat4x4_t mat4x4(f32 val);
@@ -115,7 +138,17 @@ mat4x4_t mat4x4_look_at_matrix(vec3_t position, vec3_t target, vec3_t up);
 mat4x4_t mat4x4_perspective_matrix(f32 fovy, f32 aspect, f32 near, f32 far);
 mat4x4_t mat4x4_transpose(mat4x4_t m);
 mat4x4_t mat4x4_inverse(mat4x4_t m);
+mat4x4_t mat4x4_orthogonal(f32 left, f32 right, f32 bottom, f32 top, f32 near, f32 far); 
 vec4_t   mat4x4_get_col(mat4x4_t m, int col_index);
 vec4_t   mat4x4_get_row(mat4x4_t m, int row_index);
 f32 *    mat4x4_to_f32_array(mat4x4_t m, f32 array[16]);
 f32      mat4x4_trace(mat4x4_t m);
+
+
+rectangle_t rectangle(f32 x, f32 y, f32 w, f32 h, f32 r);
+rectangle_t rectangle_get_padded_rect(rectangle_t src, f32 padding);
+rectangle_t rectangle_scale_around_top_left(rectangle_t src, vec2_t scale);
+rectangle_t rectangle_scale_around_center(rectangle_t src, vec2_t scale);
+bool        rectangle_is_point_inside(rectangle_t rect, vec2_t p);
+
+transform2D_s transform2D(vec2_t position, vec2_t scale, f32 rotation);
