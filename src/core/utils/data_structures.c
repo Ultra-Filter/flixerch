@@ -93,6 +93,13 @@ bool ring_queue_peek(const ring_queue_s* queue, void* out_peek_data)
     return true;
 }
 
+u64 ring_queue_count(const ring_queue_s *queue)
+{
+    s64 c = queue->head == -1 ? 0 : queue->tail - queue->head;
+        c = c >= 0 ? c : (s64)queue->capacity + c;
+    return (u64)c;
+}
+
 // ====================================================
 //                 Dynamic Array
 // ====================================================
@@ -102,15 +109,12 @@ bool ring_queue_peek(const ring_queue_s* queue, void* out_peek_data)
 
 typedef struct _darray_header
 {
+    u32 type_size_in_bytes;
     u64 capacity;
     u64 count;
-    u64 type_size_in_bytes;
 } _darray_header;
 
-static void _darray_merge_sort(void *darray, u64 start, u64 end, bool (*compare)(void *, void *));
-
-
-void * darray_create_empty(u64 initial_capacity, u64 type_size_in_bytes)
+darray_t darray_create_empty(u64 initial_capacity, u32 type_size_in_bytes)
 {
     _darray_header* header = malloc(sizeof(_darray_header) + initial_capacity * type_size_in_bytes);
     
@@ -121,7 +125,7 @@ void * darray_create_empty(u64 initial_capacity, u64 type_size_in_bytes)
     return _block_from_head(header);
 }
 
-void * darray_create_from_carray(const void *carray, u64 length, u64 type_size_in_bytes)
+darray_t darray_create_from_carray(const void *carray, u64 length, u64 type_size_in_bytes)
 {
     _darray_header* header = malloc(sizeof(_darray_header) + length * type_size_in_bytes);
     
@@ -135,7 +139,7 @@ void * darray_create_from_carray(const void *carray, u64 length, u64 type_size_i
     return block;
 }
 
-void * darray_create_from_darray(const void *darray)
+darray_t darray_create_from_darray(const darray_t darray)
 {
     _darray_header* old_header = _head_from_block(darray);
     _darray_header* header = malloc(sizeof(_darray_header) + old_header->capacity * old_header->type_size_in_bytes);
@@ -145,7 +149,7 @@ void * darray_create_from_darray(const void *darray)
     return _block_from_head(header);
 }
 
-void darray_insert_at(void ** darray, const void *element, u64 index)
+void darray_insert_at(darray_t* darray, const void *element, u64 index)
 {
     if (darray == NULL) return; // Silence error
     
@@ -174,7 +178,7 @@ void darray_insert_at(void ** darray, const void *element, u64 index)
     head->count++;
 }
 
-void darray_remove_at(void ** darray, u64 index)
+void darray_remove_at(darray_t* darray, u64 index)
 {
     _darray_header* head = _head_from_block((*darray));
 
@@ -187,7 +191,7 @@ void darray_remove_at(void ** darray, u64 index)
     // Dont forget to reasign darray to new reallocation
 }
 
-void darray_remove(void ** darray, const void *element)
+void darray_remove(darray_t* darray, const void *element)
 {
     if (element == NULL) return; // Silence error
     
@@ -216,7 +220,7 @@ void darray_remove(void ** darray, const void *element)
     }
 }
 
-void darray_push(void **darray, const void *element)
+void darray_push(darray_t* darray, const void *element)
 {
     if (darray == NULL) return; // Silence error
     
@@ -240,7 +244,7 @@ void darray_push(void **darray, const void *element)
     head->count++;
 }
 
-void darray_pop(void **darray, void *out_element)
+void darray_pop(darray_t* darray, void *out_element)
 {
     if (out_element == NULL) return; // Silence error
 
@@ -254,13 +258,13 @@ void darray_pop(void **darray, void *out_element)
     // Dont forget to reasign darray to new reallocation
 }
 
-u64 darray_get_length(const void *darray)
+u64 darray_get_length(const darray_t darray)
 {
     if (darray == NULL) return 0; // Silence error
     return _head_from_block(darray)->count;
 }
 
-u64 darray_get_capacity(const void *darray)
+u64 darray_get_capacity(const darray_t darray)
 {
     if (darray == NULL) return 0; // Silence error
     return _head_from_block(darray)->capacity;
