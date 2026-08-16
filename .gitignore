@@ -1,4 +1,4 @@
 build
 .vscode
 .clangd
-builder.cmd
+bld.exe
