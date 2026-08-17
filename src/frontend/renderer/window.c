@@ -8,14 +8,14 @@ static struct {
     GLFWwindow* handle;
     // Screen size always non-negative, 
     //  and it is OK to assume that the screen size is smaller then 2^32 - 1.
-    u32 width; 
+    u32 width;
     u32 height;
 } _window;
 
 // Transitions between keys
 /*
     up -> pressed -> down -> release -> up ...
-             ^                  ^                            
+             ^                  ^
             once               once
 */
 typedef enum key_state {
@@ -230,6 +230,21 @@ static void window_mouse_position_callbak(GLFWwindow* win, f64 xpos, f64 ypos)
     _input.mouse.y = ypos;
 }
 
+
+static void window_char_callback(GLFWwindow* win, unsigned int codepoint)
+{
+    UNUSED(win);
+    UNUSED(codepoint);
+}
+
+static void window_char_mods_callback(GLFWwindow* win, unsigned int codepoint, int mods)
+{
+    UNUSED(win);
+    UNUSED(codepoint);
+    UNUSED(mods);
+}
+
+
 void init_openGL(void)
 {
     glViewport(0,0,_window.width, _window.height);
@@ -264,20 +279,27 @@ bool window_init(u32 width, u32 height, const char* title)
     
     // TODO: add required hints
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    // Using openGL version 330 core
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_SAMPLES, 4);
+    // Using openGL max profile supported by machine (assuming 450 core ?)
+    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    // glfwWindowHint(GLFW_VERSION_MAJOR, 3);
+    // glfwWindowHint(GLFW_VERSION_MINOR, 3);
+    // glfwWindowHint(GLFW_SAMPLES, 4);
     // glfwMaximizeWindow(_window.handle); // ??
-    
+
     // TODO: set callbacks
     glfwSetFramebufferSizeCallback(_window.handle, window_size_changed_callback);
     glfwSetKeyCallback(_window.handle, window_key_pressed_callback);
     glfwSetMouseButtonCallback(_window.handle, window_callback_mouse_pressed);
     glfwSetScrollCallback(_window.handle, window_scroll_callback);
+
     glfwSetCursorPosCallback(_window.handle, window_mouse_position_callbak);
+
+    glfwSetCursorPosCallback(_window.handle, window_mouse_position_callbak);
+    glfwSetCharCallback(_window.handle, window_char_callback);
+    glfwSetCharModsCallback(_window.handle, window_char_mods_callback);
+
 
     // Init openGL
     glfwMakeContextCurrent(_window.handle);
@@ -378,9 +400,10 @@ void window_destroy(void)
     glfwTerminate();
 }
 
-void window_clear_screen(void)
+void window_clear_screen(rgba_t clear_color)
 {
-    glClearColor(0.2F, 0.2F, 0.2F, 1.0F);
+    glClearColor(clear_color.r / 255.0F, clear_color.g / 255.0F, clear_color.b / 255.0F, clear_color.a / 255.0F);
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -443,4 +466,9 @@ f64 get_time(void)
 f64 get_delta_time(void)
 {
     return _time.delta_time;
+}
+
+void window_close(void)
+{
+    glfwSetWindowShouldClose(_window.handle, GLFW_TRUE);
 }
