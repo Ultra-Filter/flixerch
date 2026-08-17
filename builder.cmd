@@ -2,6 +2,10 @@
 
 setLocal EnableDelayedExpansion
 
+if not exist "build" mkdir "build"
+if not exist "build\debug" mkdir "build\debug"
+if not exist "build\release" mkdir "build\release"
+
 set sources=
 set cwd=%CD%\
 
