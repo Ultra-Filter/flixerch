@@ -1,6 +1,83 @@
 #include "font.h"
 
+typedef struct font_t 
+{
+    const char * font_name;
+    s32 size, bold, italic, w, h, char_count;
+    font_char_t* chars;
+    const char* image_path;
+    const font_type_e font_type; 
+} font_t;
+
+
+#define FONT_ATLAS_MAX_FONT_COUNT 10
+typedef struct font_atlas_t {
+    u8 font_count;
+    u64 fonts_offset [ FONT_ATLAS_MAX_FONT_COUNT ];
+    font_t fonts [ FONT_ATLAS_MAX_FONT_COUNT ];
+    font_atlas_type_e atlas_type;
+    u64 atlas_width;
+    u64 atlas_height;
+} font_atlas_t;
+
 static font_t get_font(font_type_e type);
+static font_atlas_t get_font_atlas(font_atlas_type_e type);
+
+static font_char_t get_codepoint_data(font_t font, s32 codepoint)
+{
+    s32 index = -1;
+    font_char_t c = { 0 };
+
+    for (s32 i = 0; i <= font.char_count - 1; i++)
+    {
+        if (font.chars[i].codepoint == codepoint) 
+        {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1)
+    {
+        LOG_ERROR("Codepoint not recognized.");
+        return c;
+    }
+
+    c = font.chars[index]; 
+    return c;
+}
+
+font_char_t font_atlas_get_codepoint_data(font_atlas_type_e atlas_type, u8 index, s32 codepoint)
+{
+    font_atlas_t atlas = get_font_atlas(atlas_type);
+
+    if (index >= atlas.font_count) return (font_char_t) { 0 }; 
+    
+    return get_codepoint_data(atlas.fonts[index], codepoint);
+}
+
+u64 font_atlas_get_offset(font_atlas_type_e atlas_type, u8 font_index)
+{
+    font_atlas_t atlas = get_font_atlas(atlas_type);
+    
+    if (font_index >= atlas.font_count) return 0; 
+
+    return atlas.fonts_offset[font_index];
+}
+
+u64 font_atlas_get_width(font_atlas_type_e atlas_type)
+{
+    font_atlas_t atlas = get_font_atlas(atlas_type);
+
+    return atlas.atlas_width;
+}
+
+u64 font_atlas_get_height(font_atlas_type_e atlas_type)
+{
+    font_atlas_t atlas = get_font_atlas(atlas_type);
+
+    return atlas.atlas_height;
+}
 
 static s32 get_codepoint_index(font_char_t* chars, s32 codepoint, s32 start, s32 end)
 {
@@ -10,6 +87,8 @@ static s32 get_codepoint_index(font_char_t* chars, s32 codepoint, s32 start, s32
     }
     return -1;
 }
+
+
 
 font_char_t font_get_codepoint_data(font_type_e font_type, s32 codepoint)
 {
@@ -27,6 +106,14 @@ font_char_t font_get_codepoint_data(font_type_e font_type, s32 codepoint)
     c = font.chars[index]; 
     return c;
 }
+
+
+
+
+
+
+
+
 
 rectangle_t font_get_rect_from_codepoint(font_type_e font_type, s32 codepoint)
 {
@@ -822,7 +909,7 @@ static font_char_t characters_Times100[] = {
   {1514, 171, 237, 44, 58, -1, 56},
 };
 
-static font_t TIMES_20 = {
+static const font_t TIMES_20 = {
     "Times", 
     20, 
     1110 + 905 + 676 + 449, 
@@ -835,7 +922,7 @@ static font_t TIMES_20 = {
     FONT_TYPE_TIMES_20
 };
 
-static font_t TIMES_40 = {
+static const font_t TIMES_40 = {
     "Times", 
     40, 
     1110 + 905 + 676, 
@@ -848,7 +935,7 @@ static font_t TIMES_40 = {
     FONT_TYPE_TIMES_40
 };
 
-static font_t TIMES_60 = {
+static const font_t TIMES_60 = {
     "Times", 
     60, 
     1110 + 905, 
@@ -861,8 +948,7 @@ static font_t TIMES_60 = {
     FONT_TYPE_TIMES_60
 };    
 
-
-static font_t TIMES_80 = {
+static const font_t TIMES_80 = {
     "Times", 
     80, 
     1110, 
@@ -875,7 +961,7 @@ static font_t TIMES_80 = {
     FONT_TYPE_TIMES_80
 };
 
-static font_t TIMES_100 = {
+static const font_t TIMES_100 = {
     "Times", 
     100, 
     0, 
@@ -886,6 +972,22 @@ static font_t TIMES_100 = {
     characters_Times100,
     "assets/images/TIMES_FONT_100_80_60_40_20.png",
     FONT_TYPE_TIMES_100
+};
+
+static const font_atlas_t TIMES_ATLAS = (font_atlas_t) 
+{
+    .atlas_height = 355,
+    .atlas_width  = 3363,
+    .atlas_type   = FONT_ATLAS_TYPE_TIMES_100_80_60_40_20,
+    .font_count   = 5,
+    .fonts        = { TIMES_100, TIMES_80, TIMES_60, TIMES_40, TIMES_20 },
+    .fonts_offset = { 
+        0, 
+        TIMES_100.w,
+        TIMES_100.w + TIMES_80.w,
+        TIMES_100.w + TIMES_80.w + TIMES_60.w,
+        TIMES_100.w + TIMES_80.w + TIMES_60.w + TIMES_40.w,
+    }
 };
 
 font_t get_font(font_type_e type)
@@ -902,4 +1004,14 @@ font_t get_font(font_type_e type)
             LOG_ERROR("Font type does not exist.");
     }
     return (font_t){ 0 };
+}
+
+font_atlas_t get_font_atlas(font_atlas_type_e type)
+{
+    switch (type)
+    {
+        case FONT_ATLAS_TYPE_TIMES_100_80_60_40_20: return TIMES_ATLAS;
+        default: break;
+    }
+    return (font_atlas_t){ 0 };
 }
