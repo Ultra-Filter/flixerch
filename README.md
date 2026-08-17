@@ -9,7 +9,7 @@
         - recommendation_system
         - search_engine
         - database
-        - web
+        - web 
     - core
         - job_system
         - video_decoder
@@ -23,27 +23,15 @@
 ## TODO's
 
 ### Week 1
-- Basic renderer fubctionality
-- Basic job system functionality 
-- Basic web functionality 
+- Basic renderer fubctionality ![Static Badge](https://img.shields.io/badge/in_progress-blue)
+- Basic job system functionality ![Static Badge](https://img.shields.io/badge/no_progress-red)
+- Basic web functionality  ![Static Badge](https://img.shields.io/badge/no_progress-red)
 
-**GOAL** *By the end of the week we want an executable that launches a window and display an image from the web loaded using curl on different thread.* 
+**GOAL** *By the end of the week we want an executable that launches a window and display an image from the web loaded using curl on different thread.* ![Static Badge](https://img.shields.io/badge/success-green)
 
-## Assignments
+### week 2 
+- Render functionality improvment (multi-size text rendering, ui-logic, demo home page)
+- Web functionality execute http request and parse responds (Basic)
+- Job system functionality
 
-### Sahar 
-* Make sure this can run on your machine (check build.cmd and change path needed)
-* Jira and other related stuff.
-    * NO *kubernetes* and NO *kafka*
-* Make sure everything is OK and if you have notes let us know.
-
-### Eli
-* Make sure this can run on your machine (check build.cmd and change path needed)
-* Start reading about Threads in windows (using winapi)
-* Implement basic thread function creation (Async)
-* Get some movie image from TMDB using curl
-
-### Dor
-* Implement basic renderer (launch window and openGL context)
-* Implement basic ui system (buttons and mvie card)
-* Combine what you created with the things Eli implemented to presernt the image on the window.
+**GOAL** *by the end of this week we want to see a demo page with scrollable content which displayes triangles with images it loaded at runtime from TMDB*

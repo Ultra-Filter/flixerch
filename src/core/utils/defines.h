@@ -23,6 +23,7 @@ typedef double              f64;
 #include <stdarg.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <string.h>
 
 // Utils
 

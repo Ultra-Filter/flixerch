@@ -1,46 +1,52 @@
-#include "window.h"
-
-static void initiate(void);
-static void mainloop(void);
-static void shutdown(void);
-
-int main (void)
-{
-    initiate();
-    mainloop();
-    shutdown();
-
-    return 0;
-}
+#include "frontend/renderer/color.h"
+#include "frontend/renderer/window.h"
+#include "frontend/renderer/glad.h"
+#include "frontend/renderer/ui_renderer.h"
+#include "core/decoders/stb_image.h"
 
 static void initiate(void)
 {
-    if (!window_init(1920, 720, "Hello"))
+    if (!window_init(1280, 800, "FliXerch"))
     {
         exit(EXIT_FAILURE);
     }
+    ui_init();
 }
 
 static void mainloop(void)
 {
+    const f64 FPS = 90.0;
+    window_prepare();
+    f64 time = get_time();
+    f64 last_render_time = time;
+
     while (!window_should_close())
     {   
-        window_clear_screen();
+        input_update();
+        time_update();
 
-        if (is_key_down(KEY_U))
+        time = get_time();
+        
+        if (time - last_render_time >= 1.0 / FPS)
         {
-            fprintf(stdout, "U pressed the 'U' key\n");\
-        }
-        if (is_key_pressed(KEY_S))
-        {
-            fprintf(stdout, "U pressed the 'S' key\n");\
-        }
+            window_clear_screen();
+            last_render_time = time;
 
-        window_update();
+            window_swap_buffers();
+        }   
     }
 }
 
 static void shutdown(void)
 {
+    ui_shutdown();
     window_destroy();
 }
+
+int main (void) 
+{
+    initiate();
+    mainloop();
+    shutdown();
+}
+
