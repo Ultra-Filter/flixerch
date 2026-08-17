@@ -33,5 +33,6 @@ void ui_panel(rectangle_t rect, rgba_t bg_color);
 void ui_panel_with_borders(rectangle_t rect, rgba_t bg_color, rgba_t border_color, f32 border_thick);
 void ui_panel_round(rectangle_t rect, rgba_t bg_color, f32 border_radius);
 void ui_panel_round_with_borders(rectangle_t rect, rgba_t bg_color, rgba_t border_color, f32 border_thick, f32 border_radius);
-void ui_text(s32* codepoints, u32 length, vec2_t top_left, rgba_t text_color);
+// void ui_text(s32* codepoints, u32 length, vec2_t top_left, rgba_t text_color);
+void ui_text(s32* codepoints, u32 length, vec2_t top_left, rgba_t text_color, u8 font_approx_size);
 
