@@ -4,6 +4,8 @@
 #include "frontend/renderer/ui_renderer.h"
 #include "core/decoders/stb_image.h"
 
+#define BACKGROUND_COLOR COLOR_BLACK
+
 static void initiate(void)
 {
     if (!window_init(1280, 800, "FliXerch"))
@@ -29,7 +31,7 @@ static void mainloop(void)
         
         if (time - last_render_time >= 1.0 / FPS)
         {
-            window_clear_screen();
+            window_clear_screen(BACKGROUND_COLOR);
             last_render_time = time;
 
             window_swap_buffers();
