@@ -39,6 +39,8 @@ static struct ui_global_data
     quad_batch_t* text_batch;
     quad_batch_t* panel_batch;
     font_type_e default_font_type;
+    font_atlas_type_e default_font_atlas_type;
+    u8 default_font_index;
 } ui_context;
 
 // ------------------------ Panel Configs ------------------------------------------------------
@@ -93,7 +95,7 @@ void ui_init(void)
     // ------------------ UI Text batch creation -----------------------------------
     u32 text_shader, text_texture;
     text_shader = create_shader_program("assets/shaders/text_shader.vs", "assets/shaders/text_shader.fs");
-    text_texture = create_texture("assets/images/text_texture.png");
+    text_texture = create_texture("assets/images/TIMES_FONT_100_80_60_40_20.png");
 
     quad_batch_create_info_s text_batch_create_info = { 0 };
     text_batch_create_info.shader_program  = text_shader;
@@ -105,7 +107,7 @@ void ui_init(void)
 
     ui_context.text_batch = quad_batch_create(text_batch_create_info);
 
-    ui_context.default_font_type = FONT_TYPE_ROBOTO32;
+    ui_context.default_font_type = FONT_TYPE_TIMES_60;
 }
 
 void ui_shutdown(void)
@@ -596,18 +598,35 @@ void ui_panel_round_with_borders(rectangle_t rect, rgba_t bg_color, rgba_t borde
     quad_batch_append_quad(ui_context.panel_batch, transform, vert_data);
 }
 
-void ui_text(s32* codepoints, u32 length, vec2_t top_left, rgba_t text_color)
+void ui_text(s32* codepoints, u32 length, vec2_t top_left, rgba_t text_color, u8 font_size)
 {
     rgbaf_t tc = rgbaf_from_rgba(text_color);
+    
+    const u8 font_sizes[ 5 ] = { 100, 80, 60, 40, 20 };
+    u8 font_i = 0;
+    for (u8 i = 0; i < 5; i++)
+    {
+        if (abs(font_size - font_sizes[i]) < abs(font_size - font_sizes[font_i]))
+        {
+            font_i = i;
+        }
+    }
 
-    f32 font_width = font_get_width(ui_context.default_font_type);
-    f32 font_height = font_get_height(ui_context.default_font_type);
+    f32 atlas_width = font_atlas_get_width(ui_context.default_font_atlas_type);
+    f32 atlas_height = font_atlas_get_height(ui_context.default_font_atlas_type);
+    f32 font_offset = font_atlas_get_offset(ui_context.default_font_atlas_type, font_i);
 
     f32 x_off = 0.0F;
     for (u32 i = 0; i < length; i++)
     {
-        font_char_t font_char = font_get_codepoint_data(ui_context.default_font_type, codepoints[i]); 
-        rectangle_t char_rect = rectangle((f32)font_char.x / (f32)font_width, (f32)font_char.y / (f32)font_height, (f32)font_char.w / (f32)font_width, (f32)font_char.h / (f32)font_height, 0);
+        font_char_t font_char = font_atlas_get_codepoint_data(ui_context.default_font_atlas_type, font_i, codepoints[i]); 
+        rectangle_t char_rect = rectangle(
+            (f32)(font_char.x + font_offset)/ (f32)atlas_width, 
+            (f32)font_char.y / (f32)atlas_height, 
+            (f32)font_char.w / (f32)atlas_width, 
+            (f32)font_char.h / (f32)atlas_height, 
+            0
+        );
 
 
         struct {
@@ -618,10 +637,10 @@ void ui_text(s32* codepoints, u32 length, vec2_t top_left, rgba_t text_color)
 
         transform2D_s transform = (transform2D_s) {
             .position = vec2(top_left.x + x_off - font_char.origin_x, top_left.y - font_char.origin_y),
-            .scale    = vec2(char_rect.w * font_width, char_rect.h * font_height),
+            .scale    = vec2(char_rect.w * atlas_width, char_rect.h * atlas_height),
             .rotation = 0.0F
         };
-        x_off += char_rect.w * font_width;
+        x_off += char_rect.w * atlas_width;
 
         // Top right
         vd1.text_r        = tc.r;
@@ -669,8 +688,6 @@ void ui_text(s32* codepoints, u32 length, vec2_t top_left, rgba_t text_color)
         quad_batch_append_quad(ui_context.text_batch, transform, data);
     }
 }
-
-
 
 u32 create_shader_program(const char* vs_path, const char* fs_path)
 {
