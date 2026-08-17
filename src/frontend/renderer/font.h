@@ -8,6 +8,11 @@
 typedef enum font_type_e 
 {
     FONT_TYPE_ROBOTO32,
+    FONT_TYPE_TIMES_20,
+    FONT_TYPE_TIMES_40,
+    FONT_TYPE_TIMES_60,
+    FONT_TYPE_TIMES_80,
+    FONT_TYPE_TIMES_100,
     FONT_TYPE_COUNT
 } font_type_e;
 
