@@ -3,7 +3,7 @@
 #include "glad.h"
 #include <GLFW/glfw3.h>
 #include <stdio.h>
-
+#include "core/decoders/stb_image.h"
 static struct { 
     GLFWwindow* handle;
     // Screen size always non-negative, 
@@ -40,6 +40,8 @@ static struct {
     f64 current_time;
     f64 last_time;
     f64 delta_time;
+    u32 FPS, frame_since_last_time;
+    f64 last_fps_time;
 } _time;
 
 static u8 key_to_index(u32 key_code)
@@ -285,7 +287,7 @@ bool window_init(u32 width, u32 height, const char* title)
     // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     // glfwWindowHint(GLFW_VERSION_MAJOR, 3);
     // glfwWindowHint(GLFW_VERSION_MINOR, 3);
-    // glfwWindowHint(GLFW_SAMPLES, 4);
+    glfwWindowHint(GLFW_SAMPLES, 4);
     // glfwMaximizeWindow(_window.handle); // ??
 
     // TODO: set callbacks
@@ -299,6 +301,21 @@ bool window_init(u32 width, u32 height, const char* title)
     glfwSetCursorPosCallback(_window.handle, window_mouse_position_callbak);
     glfwSetCharCallback(_window.handle, window_char_callback);
     glfwSetCharModsCallback(_window.handle, window_char_mods_callback);
+
+    GLFWimage images[1];
+    s32 c;
+    images[0].pixels = stbi_load("assets/images/icon.png", &images[0].width, &images[0].height, &c, 4);
+    if (images[0].pixels)
+    {
+        LOG_INFO("SUCCESS loading icon");
+        glfwSetWindowIcon(_window.handle, 1, images);
+        stbi_image_free(images[0].pixels);
+    }
+    else 
+    {
+        LOG_ERROR("Failed loading icon");
+    }
+
 
 
     // Init openGL
@@ -412,6 +429,12 @@ void time_update(void)
     _time.current_time = glfwGetTime();
     _time.delta_time   = _time.current_time - _time.last_time;
     _time.last_time    = _time.current_time;
+    _time.frame_since_last_time++;
+    if (_time.current_time - _time.last_fps_time >= 1.0F)
+    {
+        _time.FPS = _time.frame_since_last_time;
+        _time.frame_since_last_time = 0;
+    }
 }
 
 void input_update(void)
@@ -429,7 +452,7 @@ void input_update(void)
         _input.mouse.btns[i] == KEY_STATE_RELEASE ? KEY_STATE_UP   :
         _input.mouse.btns[i]; 
     }
-    glfwWaitEvents();
+    glfwPollEvents();
     glViewport(0, 0,_window.width, _window.height);
 }
 
@@ -441,6 +464,11 @@ f64 get_mouse_x(void)
 f64 get_mouse_y(void)
 {
     return  _input.mouse.y;
+}
+
+u32 get_fps(void)
+{
+    return _time.FPS;
 }
 
 u32 get_window_width(void)

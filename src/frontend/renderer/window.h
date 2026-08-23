@@ -152,13 +152,13 @@ bool is_mouse_button_up       (u8 button_code);
 void window_prepare           (void);
 void window_swap_buffers      (void); 
 void window_destroy           (void);
-
 void window_close             (void);
 void window_clear_screen      (rgba_t clear_color);
 void time_update              (void);
 void input_update             (void);
 f64  get_mouse_x              (void);
 f64  get_mouse_y              (void);
+u32  get_fps                  (void);
 u32  get_window_width         (void);
 u32  get_window_height        (void);
 f64  get_mouse_scroll_offset  (void);
