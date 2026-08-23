@@ -1,6 +1,6 @@
 #pragma once
 
-#include "defines.h"
+#include "../defines.h"
 
 #define DSTRING_NULL_TERMINATOR '\0'
 
