@@ -1,6 +1,6 @@
 #pragma once
 
-#include "defines.h"
+#include "../defines.h"
 
 typedef struct darr_memory_allocator
 {
@@ -28,7 +28,7 @@ u64    darr_get_capacity(const void * darray);
 
 #define darrlen(darr) (darr) == NULL ? 0 : _head_from_block(darray)->count
 
-#if defined(DARRAY_IMPLEMENTATION) || 1
+#if defined(DARRAY_IMPLEMENTATION) 
 
 #define DARRAY_DEFAULT_ALLOCATOR (darr_memory_allocator){ .allocate = malloc, .reallocate = realloc , .free = free}
 #define _head_from_block(block) (((_darray_header*)block)-1)

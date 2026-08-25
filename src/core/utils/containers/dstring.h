@@ -1,6 +1,6 @@
 #pragma once
 
-#include "defines.h"
+#include "../defines.h"
 
 #define DSTRING_NULL_TERMINATOR '\0'
 
@@ -67,7 +67,8 @@ void   dstr_to_lower(dstr_t dstr); // Convert dstr uppercase to lowercase and al
 void   dstr_to_upper(dstr_t dstr); // Convert dstr lowercase to uppercase and all other characters dont change
 void   dstr_replace_char(dstr_t dstr, char to_replace, char replacement); // replace the first `char == to_replace` in dstr to `replacement`
 void   dstr_replace_chars(dstr_t dstr, char to_replace[], char replacement[], u64 length); // replace the first substring of dstr which equles to `to_replace` with `replacement`
-
+void   dstr_break_by_delim(dstr_t dstr, char delim, dstr_t* out_array, u64* out_array_length, dstr_memory_allocator* allocator); // breaks dstr to out_array = { d1, d2, d3, .., dk } where dstr = d1 + delim + d2 + delim + ... + delim + dk. out_array can be NULL in order to check what is out_array_length, NOTE: caller must allocate and free out_array  
+void   dstr_break_by_delim_start_end(dstr_t dstr, char delim_start, char delim_end, char** out_array, dstr_memory_allocator* allocator); // breaks dstr to out_array = { d2, d2, d3} where dstr = d1 + start_delim + d2 + end_delim + d3, NOTE: (out_array is dstr_t [3]), if di is empty then out_array[i] = NULL, if start_delim exists more then once we choose the first, and if end_delim exists more then once we choose the first that comes after delim_start.
 
 dstr_builder_t  dstr_builder_create(u64 initial_capacity, dstr_memory_allocator* allocator);
 dstr_t          dstr_builder_generate_dstr(dstr_builder_t builder, dstr_memory_allocator* allocator);
@@ -584,6 +585,80 @@ void dstr_replace_chars(dstr_t dstr, char to_replace[], char replacement[], u64 
             {
                 dstr[i + j] = replacement[j];
             }
+        }
+    }
+}
+
+void dstr_break_by_delim(dstr_t dstr, char delim, dstr_t *out_array, u64* out_array_length, dstr_memory_allocator* allocator)
+{
+    u64 dstr_len = dstrlen(dstr);
+    u64 count = 0;
+    const char* last = dstr;
+    for (const char* p = dstr; p < dstr + dstr_len; p++)
+    {
+        if (*p == delim)
+        {
+            u64 len = (u64)(p - last);
+            if (len > 0) // more then one delims in a raw - ignore
+            {
+                if (out_array != NULL) 
+                {
+                    out_array[ count ] = dstr_create_from_chars(last, len , allocator);
+                } 
+                last = p + 1; // ignores delim
+                count++;
+            }
+        }
+    }
+    if (out_array_length != NULL) *out_array_length = count;
+}
+
+void dstr_break_by_delim_start_end(dstr_t dstr, char delim_start, char delim_end, char **out_array, dstr_memory_allocator *allocator)
+{
+    u64 dstr_len = dstrlen(dstr);
+    const char* start = NULL;
+    const char* end = NULL;
+    for (const char* p = dstr; p < dstr_len; p++)
+    {
+        if (start == NULL && *p == delim_start)
+        {
+            start = p + 1; // ignores delim
+        }
+        else if (start != NULL && *p == delim_end)
+        {
+            end = p - 1; // ignores delim
+            break;
+        }
+    }
+
+    if (out_array != NULL)
+    {
+        u64 start_len = (u64)(start - dstr);
+        if (start_len > 0)
+        {
+            out_array[ 0 ] = dstr_create_from_chars(dstr, start_len, allocator);
+        }
+        else 
+        {
+            out_array[ 0 ] = NULL;
+        }
+        u64 mid_len = (u64)(end - start);
+        if (start_len > 0)
+        {
+            out_array[ 1 ] = dstr_create_from_chars(start, mid_len, allocator);
+        }
+        else 
+        {
+            out_array[ 1 ] = NULL;
+        }
+        u64 end_len = (u64)(dstr + dstr_len - end);
+        if (start_len > 0)
+        {
+            out_array[ 2 ] = dstr_create_from_chars(end, end_len, allocator);
+        }
+        else 
+        {
+            out_array[ 2 ] = NULL;
         }
     }
 }
