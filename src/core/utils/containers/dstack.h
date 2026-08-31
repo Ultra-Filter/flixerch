@@ -11,11 +11,13 @@ typedef struct dstack_mem_allocator
 } dstack_mem_allocator;
 
 dstack_t dstack_create(u64 initial_capacity, u32 item_size, dstack_mem_allocator* allocator);
-void dstack_destroy(dstack_t dstack);
-bool dstack_is_empty(dstack_t dstack);
-void dstack_push(dstack_t dstack, void* item);
-void dstack_pop(dstack_t dstack, void* out_item);
-void dstack_peek(dstack_t dstack, void* out_item);
+void     dstack_destroy(dstack_t dstack);
+bool     dstack_is_empty(dstack_t dstack);
+void     dstack_push(dstack_t dstack, void* item);
+void     dstack_pop(dstack_t dstack, void* out_item);
+void     dstack_peek(dstack_t dstack, void* out_item);
+void     dstack_clear(dstack_t dstack);
+u64      dstack_count(dstack_t dstack);
 
 #if defined(DSTACK_IMPLEMENTATION)
 
@@ -83,5 +85,14 @@ void dstack_peek(dstack_t dstack, void* out_item)
     memcpy(out_item, (u8*)dstack->block + (dstack->count - 1) * dstack->item_size, dstack->item_size);
 }
 
+void dstack_clear(dstack_t dstack)
+{
+    if (dstack) dstack->count = 0;
+}
+
+u64 dstack_count(dstack_t dstack)
+{
+    return dstack ? dstack->count : 0;
+}
 
 #endif
