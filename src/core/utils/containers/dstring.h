@@ -618,7 +618,7 @@ void dstr_break_by_delim_start_end(dstr_t dstr, char delim_start, char delim_end
     u64 dstr_len = dstrlen(dstr);
     const char* start = NULL;
     const char* end = NULL;
-    for (const char* p = dstr; p < dstr_len; p++)
+    for (const char* p = dstr; p < dstr + dstr_len; p++)
     {
         if (start == NULL && *p == delim_start)
         {
