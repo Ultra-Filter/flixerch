@@ -1,0 +1,12 @@
+#define  DARRAY_IMPLEMENTATION
+#include "darray.h"
+#define DHASH_TABLE_IMPLEMENTATION
+#include "dhash_table.h"
+#define DLINKED_LIST_IMPLEMENTATION
+#include "dlinked_list.h"
+#define DQUEUE_IMPLEMENTATION
+#include "dqueue.h"
+#define DSTACK_IMPLEMENTATION
+#include "dstack.h"
+#define  DSTRING_IMPLEMENTATION
+#include "dstring.h"
