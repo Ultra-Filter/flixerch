@@ -55,7 +55,7 @@ void dstack_destroy(dstack_t dstack)
 
 bool dstack_is_empty(dstack_t dstack)
 {
-    return dstack != NULL && dstack->count == 0;
+    return dstack == NULL || dstack->count == 0;
 }
 
 void dstack_push(dstack_t dstack, void* item)
