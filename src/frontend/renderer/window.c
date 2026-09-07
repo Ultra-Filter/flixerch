@@ -192,7 +192,7 @@ static void  window_size_changed_callback(GLFWwindow* window, int width, int hei
     _window.width  = (u32)width;
     _window.height = (u32)height;
 
-    glViewport(0, 0, _window.width, _window.width);
+    glViewport(0, 0, _window.width, _window.height);
 }
 
 static void window_key_pressed_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -253,7 +253,7 @@ void init_openGL(void)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
     // glEnable(GL_SCISSOR_TEST);
-    glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_DEPTH_TEST);
     glEnable(GL_LINE_SMOOTH);
     glEnable(GL_MULTISAMPLE);  
     // TODO: glEnable(stuff)...
