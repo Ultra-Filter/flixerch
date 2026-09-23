@@ -7,6 +7,7 @@
 #include "frontend/renderer/quad_renderer.h"
 #include "frontend/renderer/window.h"
 
+
 typedef struct UI_element {
     UI_type type;
     struct ID {
@@ -17,6 +18,8 @@ typedef struct UI_element {
     UI_childs_style childs_style;
     struct dlinked_list* childs;
     transform2D_s transform;
+    sizing_s sizing;
+    bool active; 
 } UI_element;
 
 typedef struct UI_panel {
@@ -45,6 +48,7 @@ typedef struct page
     u64 hash;
     UI_element* root;
     dhash_table_t* elements_table;
+    f32 ww, wh;
 } ui_page;
 
 static struct UI_context
@@ -76,40 +80,74 @@ static inline int _compare_child_func_(void*k1, void* k2)
     return *s1 - *s2;
 }
 
-// static void calculate_ui_layout(ui_page page)
-// {
-//     if (!page.root) return;
+static void _calculate_root_layout(UI_element * root)
+{
+    if (!root->active) return;
+    vec4_t pad = root->childs_style.paddings;
+    f32 x = root->transform.position.x + pad.z;
+    f32 y = root->transform.position.y + pad.x;
+    f32 gap = root->childs_style.gap;
+    f32 sx, sy;
+    f32 max_w = root->transform.scale.x - pad.x - pad.w;
+    f32 max_h = root->transform.scale.y - pad.x - pad.y;
+    bool horizontal = root->childs_style.direction == UI_CHILDS_ALIGN_HORIZONTAL; 
+    if (horizontal)
+    {
+        max_w = (root->transform.scale.x - pad.z - pad.w - (root->childs_count - 1) * gap) / root->childs_count;
+    } 
+    else 
+    {
+        max_h = (root->transform.scale.y - pad.x - pad.y - (root->childs_count - 1) * gap) / root->childs_count;
+    }
 
-//     struct pair {
-//         UI_element* e;
-//         u32 childs_idx;
-//     };
+    dlinked_list_iter it = { 0 };
+    UI_element* child_ptr;
 
-//     dstack_t stack = dstack_create(64, sizeof(struct pair), NULL);
-//     struct pair p = (struct pair){ .e = &page.root, .childs_idx = 0 };
-//     dstack_push(stack, &p);
-
-//     f32 ww = (f32)get_window_width();
-//     f32 wh = (f32)get_window_height();
-
-//     page.root->transform = transform2D(vec2v(0.0F), vec2(ww, wh), 0.0F);
-
-//     while (!dstack_is_empty(stack))
-//     {
-//         UI_element* e;
-//         dstack_pop(stack, &e);
-//         if (!e) continue;
+    while (dlinked_list_iterator_next(root->childs, &it, &child_ptr))
+    {
+        if (child_ptr)
+        {
+            sx = fmaxf(fminf(max_w, child_ptr->sizing.max_w), child_ptr->sizing.min_w);
+            sy = fmaxf(fminf(max_h, child_ptr->sizing.max_h), child_ptr->sizing.min_h);
         
-//         dlinked_list_iter iter = { 0 };
-//         UI_element* c;
-//         while (dlinked_list_iterator_next(e->childs, &iter, &c))
-//         {
-//             dstack_push(stack, &c);
-//         }
-        
+            transform2D_s transform = transform2D(
+                vec2(x, y),
+                vec2(sx, sy),
+                0
+            );
+            child_ptr->transform = transform;
+            
+            if (horizontal)
+            {
+                x += sx + gap;
+            }
+            else
+            {
+                y += sy + gap;
+            }
+        }
+    }
 
-//     }
-// }
+    it = (dlinked_list_iter){ 0 };
+    while (dlinked_list_iterator_next(root->childs, &it, &child_ptr))
+    {
+        if (child_ptr) _calculate_root_layout(child_ptr);
+    }
+}
+
+static void _calculate_ui_layout(ui_page page)
+{
+    f32 ww = (f32)get_window_width();
+    f32 wh = (f32)get_window_height();
+    if (!page.root) return;
+    UI_element* root = page.root;
+    root->transform = transform2D(
+        vec2(0, 0),
+        vec2(ww, wh),
+        0
+    );
+    _calculate_root_layout(root);
+}
 
 static void _ui_element_append_child(UI_element* parent, UI_element* child)
 {
@@ -118,6 +156,7 @@ static void _ui_element_append_child(UI_element* parent, UI_element* child)
         parent->childs = dlinked_list_create(sizeof(UI_element*), NULL);
     }
     dlinked_list_push_back(parent->childs, &child);
+    parent->childs_count++;
 }
 
 static inline UI_element* _ui_page_find_element_(ui_page page, const char* name)
@@ -148,7 +187,13 @@ void ui_page_begin(const char* page_name)
 
 void ui_page_end()
 {
-    if (context.curr_page.name) dhash_table_set(context.pages_table, context.curr_page.name, &context.curr_page);
+    if (context.curr_page.name) 
+    {
+        dhash_table_set(context.pages_table, context.curr_page.name, &context.curr_page);
+        _calculate_ui_layout(context.curr_page);
+        context.curr_page.ww = (f32)get_window_width();
+        context.curr_page.wh = (f32)get_window_height();
+    }
     context.curr_page = (ui_page){ 0 };
     dstack_clear(context.stack);
 }
@@ -157,7 +202,13 @@ void ui_element_begin(UI_type element_type, const char* element_name, ...)
 {
     if (!context.curr_page.elements_table)
     {
-        context.curr_page.elements_table = dhash_table_create(128, sizeof(UI_element*), HASH_TYPE_FNV1A, DHASH_COLLISION_RESOLUTION_TYPE_LINKED_LIST, NULL);
+        context.curr_page.elements_table = dhash_table_create(
+            128, 
+            sizeof(UI_element*), 
+            HASH_TYPE_FNV1A, 
+            DHASH_COLLISION_RESOLUTION_TYPE_LINKED_LIST, 
+            NULL
+        );
     }
 
     va_list args;
@@ -194,7 +245,7 @@ void ui_element_begin(UI_type element_type, const char* element_name, ...)
                 AS_PANEL(e)->element.childs = NULL;
                 AS_PANEL(e)->element.childs_count = 0;
                 AS_PANEL(e)->style = style;
-                
+                e->childs_style = style.childs_style;
                 // ....
                 
             } break;
@@ -209,7 +260,9 @@ void ui_element_begin(UI_type element_type, const char* element_name, ...)
             {
                 e = UI_MALLOC(sizeof(UI_button));
                 UI_button_style style = va_arg(args, UI_button_style);
+                sizing_s sizing = va_arg(args, sizing_s);
                 UNUSED(style);
+                UNUSED(sizing);
                 // ....
                 
             } break;
@@ -217,6 +270,7 @@ void ui_element_begin(UI_type element_type, const char* element_name, ...)
             {
                 e = UI_MALLOC(sizeof(UI_panel));
                 UI_panel_style style = va_arg(args, UI_panel_style);
+                sizing_s sizing = va_arg(args, sizing_s);
                 
                 AS_PANEL(e)->element.type = UI_TYPE_PANEL;
                 AS_PANEL(e)->element.ID.key = element_name;
@@ -224,11 +278,13 @@ void ui_element_begin(UI_type element_type, const char* element_name, ...)
                 AS_PANEL(e)->element.childs = NULL;
                 AS_PANEL(e)->element.childs_count = 0;
                 AS_PANEL(e)->style = style;
+                e->childs_style = style.childs_style;
                 e->transform = transform2D(
                     vec2(0,0), 
-                    vec2(100,100),
+                    vec2(0,0),
                     0
                 );
+                e->sizing = sizing;
                 
                 // ....
                 
@@ -248,7 +304,7 @@ void ui_element_begin(UI_type element_type, const char* element_name, ...)
     if (context.head)
     {
         _ui_element_append_child(context.head, e);
-        dstack_push(context.stack, context.head);
+        dstack_push(context.stack, &context.head);
     }
 
     context.head = e;
@@ -259,7 +315,7 @@ void ui_element_end(void)
     if (context.head) // Silent error otherwise [ On multiple calls to ui_element_end ]
     {
         UI_element* new_head = NULL;
-        dstack_pop(context.stack, new_head);
+        dstack_pop(context.stack, &new_head);
         context.head = new_head;
     }
 }
@@ -290,6 +346,7 @@ void ui_edit_element_end(void);
 void ui_init(void)
 {
     context.pages_table = dhash_table_create(32, sizeof(ui_page), HASH_TYPE_FNV1A, DHASH_COLLISION_RESOLUTION_TYPE_LINKED_LIST, NULL);
+    context.stack = dstack_create(8, sizeof(UI_element*), NULL);
     render_system_init();
 }
 
@@ -300,13 +357,14 @@ void ui_shutdown(void)
 
 static void draw_ui_panel(UI_panel panel, transform2D_s transform)
 {
+    if (!panel.element.active || !panel.style.visible) return;
+
     render_system_draw(
             DRAWABLE_TYPE_QUAD,
             transform,
             Z_INDEX_0,
-            panel.style.style  
+            panel.style.style
         );
-    
 }
 
 static void draw_ui_button(UI_button button, transform2D_s transform)
@@ -321,6 +379,12 @@ void ui_render(const char* page_name)
     {
         return;
     }
+
+    if ((f32)get_window_width() != context.curr_page.ww || (f32)get_window_height() != context.curr_page.wh)
+    {
+        _calculate_ui_layout(context.curr_page);
+    }
+
     dqueue_t queue = dqueue_create(128, sizeof(UI_element*), NULL);
     dqueue_push(&queue, &context.curr_page.root);
     
@@ -337,7 +401,7 @@ void ui_render(const char* page_name)
         {
             dqueue_push(&queue, &c);
         }
-    
+        
         switch (n->type)
         {
             case UI_TYPE_PANEL: draw_ui_panel(*AS_PANEL(n), n->transform); break;
