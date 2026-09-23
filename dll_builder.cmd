@@ -1,3 +1,4 @@
+
 @echo off 
 
 setLocal EnableDelayedExpansion
@@ -41,15 +42,14 @@ if "%1"=="r" (
     set release_flags=-mwindows
     set build_flags=
 )
-if "%1"=="l" (
+if "%1"=="dll" (
     echo ==============================================
-    echo                 DYNAMIC MODE
+    echo                 RELEASE MODE
     echo ==============================================
     set flags=-Wall -Wextra -Wno-unused-function -Wno-int-to-pointer-cast
-    set defines=-DDYNAMIC_UI_LIB -D_DEBUG
+    set defines=
     set output=UI_LIB.dll
-    set release_flags=
-    set build_flags=-shared -g
+    set build_flags=-shared
 )
 REM echo %compiler% -o %output% %build_flags% %sources% %include% -static %libs% %libs_flags% %defines% %flags%
  
