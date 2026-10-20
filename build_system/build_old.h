@@ -178,8 +178,8 @@ void cmd___executable__run(void);
 bool SYSTEMTIME__compare(SYSTEMTIME t1, SYSTEMTIME t2);
 int build(int argc, char ** argv);
 
-// #ifdef BUILD_IMPLEMENTATION 
-#if 1
+#ifdef BUILD_IMPLEMENTATION 
+// #if 1
 #undef BUILD_IMPLEMENTATION
 
 static struct MEMORY_CHUNK_SMALL

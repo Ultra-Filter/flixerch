@@ -42,7 +42,7 @@ typedef struct _darray_header
     u64 type_size_in_bytes;
 } _darray_header;
 
-static void _darr_merge_sort(void *darray, u64 start, u64 end, bool (*compare)(void *, void *));
+// static void _darr_merge_sort(void *darray, u64 start, u64 end, bool (*compare)(void *, void *));
 
 
 void * darr_create_empty(u64 initial_capacity, u64 type_size_in_bytes, darr_memory_allocator* allocator)
@@ -107,8 +107,8 @@ void darr_insert_at(void ** darray, const void *element, u64 index)
         *darray = _block_from_head(head);
     }
 
-    void * dest = (*darray) + (index + 1) * head->type_size_in_bytes;
-    void * src  = (*darray) +  index      * head->type_size_in_bytes;
+    void * dest = (u8*)(*darray) + (index + 1) * head->type_size_in_bytes;
+    void * src  = (u8*)(*darray) +  index      * head->type_size_in_bytes;
     u64 amount  = (head->count - index)   * head->type_size_in_bytes;
 
     memmove(dest, src, amount);
@@ -176,7 +176,7 @@ void darr_push(void **darray, const void *element)
         *darray = _block_from_head(head);
     }
 
-    void * dest = (*darray) + head->count * head->type_size_in_bytes;
+    void * dest = (u8*)(*darray) + head->count * head->type_size_in_bytes;
 
     memcpy(dest, element, head->type_size_in_bytes);
 
@@ -223,10 +223,10 @@ u64 darr_get_capacity(const void *darray)
     return _head_from_block(darray)->capacity;
 }
 
-static void _darr_merge_sort(void *darray, u64 start, u64 end, bool (*compare)(void *, void *))
-{
-    (void)darray; (void)start; (void)end; (void)compare;
-    assert(0 && "NOT IMPLEMENTED");
-}
+// static void _darr_merge_sort(void *darray, u64 start, u64 end, bool (*compare)(void *, void *))
+// {
+//     (void)darray; (void)start; (void)end; (void)compare;
+//     assert(0 && "NOT IMPLEMENTED");
+// }
 
 #endif

@@ -1,77 +1,72 @@
 #pragma once
-#include "../../core/utils/defines.h"
+#include "core/utils/defines.h"
+#include "core/utils/math_engine.h"
+#include "frontend/renderer/color.h"
+#include "frontend/renderer/quad_renderer.h"
 
-// ==============================
-//       Should NOT be here
-// ==============================
-// TODO: Move it to correct location
-
-typedef struct Vec2  { float x, y;    } Vec2;
-typedef struct Color { float r,g,b,a; } Color;
-
-// ----------------------------------
-//          Componenets
-// ----------------------------------
-
-typedef struct transform_c
+typedef enum ui_element_type : u8 
 {
-    Vec2 top_left;
-    Vec2 scale;
-    f32 rotation;
-} transform_c;
+    UI_ELEMENT_TYPE_PANEL
+} ui_element_type;
 
-typedef enum align_childs_e 
-{ 
-    ALIGN_CHILDS_CENTER, 
-    ALIGN_CHILDS_START, 
-    ALIGN_CHILDS_END
-} align_childs_e;
+typedef struct sizing {
+    enum sizing_type : u8 {
+        SIZING_FIT, SIZING_GROW, SIZING_FIXED
+    } type;
+    f32 value;
+    f32 min, max;
+} sizing;   
 
-typedef struct style_c 
-{
-    // ------- General ----------
-    Color background_color; 
-    Vec2 padding_vertical;  
-    Vec2 padding_horizontal;
-    Vec2 margin_vertical;
-    Vec2 margin_horizontal;
-    f32 width;      // fraction 
-    f32 height;     // fraction 
-    f32 min_width;  // in pixels
-    f32 min_height; // in pixels
-    f32 max_width;  // in pixels
-    f32 max_height; // in pixels
-    s32 z_index; 
+typedef struct padding_vec {
+    f32 top, bottom, left, right;
+} padding_vec;
 
-    // ------- Borders ----------
-    Color border_color;
-    f32 border_radius;
-    f32 border_thickness;
-    
-    // ------- Childs ----------
-    f32 childs_gap;
-    align_childs_e align_childs_vertical;
-    align_childs_e align_childs_horizontal;
-} style_c;
+typedef struct ui_create_data {
+    struct self_data {
+        bool visible; // ?
+        z_index_type_e z_index;
+        sizing width, height;
+        f32 aspect_ratio;
+    } self;
+    struct childs_data {
+        enum direction : u8 {
+            HORIZONTAL, VERTICAL
+        } direction;
+        enum alignment : u8 {
+            CENTER, START, END, SPACE_BETWEEN, SPACE_AROUND
+        } align_main, align_cross;
+        enum flex : u8 {
+            NONE, GRID, ROW, COL
+        } flex;
+        f32 gap_main, gap_cross;
+        padding_vec paddings;
+    } childs;
+    struct style_data {
+        rgba_t background_color_left;
+        rgba_t background_color_middle;
+        rgba_t background_color_right;
+        f32 gradient_type;
+        rgba_t border_color;
+        vec4_t border_radii;
+        f32 border_thickness;
+        rgba_t shadow_color;
+        vec2_t shadow_offset;
+        f32 shadow_blur, shadow_spread;
+    } style;
+} ui_create_data;
 
-// ----------------------------------
-//          Elements
-// ----------------------------------
+typedef char* dstr_t;
 
-typedef struct UI_element
-{
-    u32 ID;
-    transform_c transform;
-    style_c style;
-    struct UI_element* father;
-    struct UI_element** childs;
+typedef struct ui_element {
+    dstr_t name; // Do we need one?
+    ui_element_type type;
+    ui_create_data create_data;
+    transform2D_s transform;
     u32 childs_count;
-} UI_element;
+    f32 sum_sizes;
+    f32 max_element_size;
 
-typedef struct Text_element 
-{
-    UI_element ui;
-    char * text;
-    Color text_color;
-    f32 font_size;
-} Text_element;
+    struct ui_element * first_child;
+    struct ui_element * right_sibling;
+    struct ui_element * parent;
+} ui_element;

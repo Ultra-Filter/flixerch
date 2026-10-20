@@ -1,357 +1,495 @@
 #include "ui_interface.h"
-#include "core/utils/containers/dstack.h"
-#include "core/utils/containers/dhash_table.h"
-#include "core/utils/containers/dlinked_list.h"
-#include "core/utils/containers/dqueue.h"
-#include "frontend/renderer/render_system.h"
-#include "frontend/renderer/quad_renderer.h"
+#include "core/utils/darena.h"
+#include "core/utils/containers/dstring.h"
 #include "frontend/renderer/window.h"
 
-typedef struct UI_element {
-    UI_type type;
-    struct ID {
-        const char* key;
-        u64 hash;
-    } ID;
-    u32 childs_count;
-    UI_childs_style childs_style;
-    struct dlinked_list* childs;
-    transform2D_s transform;
-} UI_element;
 
-typedef struct UI_panel {
-    UI_element element;
-    UI_panel_style style;
-} UI_panel;
+#define UI_MALLOC allocate
 
-typedef struct UI_button {
-    UI_element element;
-    UI_button_style style;
-    void (*on_click)(struct UI_button* btn);
-} UI_button;
-
-#define UI_MAX_STACK_DEEP 32
-#define UI_INITIAL_CHILDS_ARRAY_COUNT 2
-
-#define UI_MALLOC malloc
-#define UI_FREE   free
-
-#define AS_PANEL(e) ((UI_panel*)(e))
-#define AS_BUTTON(e) ((UI_button*)(e))
-
-typedef struct page 
+static struct UI_CONTEXT 
 {
-    const char* name;
-    u64 hash;
-    UI_element* root;
-    dhash_table_t* elements_table;
-} ui_page;
+    ui_element* curr_elem;
+    darena_t arena;
+} CTX;
 
-static struct UI_context
+void * allocate(u64 size)
 {
-    dhash_table_t* pages_table;
-    ui_page curr_page;
-    dstack_t stack;
-    UI_element* head;
-} context;
+    return darena_malloc(CTX.arena, size);
+}
 
-static inline u64 HASH (const char* key, const u32 len)
+void* reallocate(void* block, u64 size)
 {
-    const u64 offset = 14695981039346656037ULL;
-    const u64 prime  = 1099511628211ULL;
-    u64 h = offset;
-    for (const u8* k = (u8*)key; k < (u8*)key + len; k++)
+    return darena_realloc(CTX.arena, block, size);
+}
+
+void dfree(void* block)
+{
+    darena_free(CTX.arena, block);
+}
+
+
+dstr_memory_allocator allocator  = {
+    .allocate = allocate,
+    .reallocate = reallocate,
+    .free = dfree,
+};
+
+dstr_memory_allocator* ui_allocator(void)
+{
+    return &allocator;
+}
+
+int compare_elements_w(const void* e1, const void * e2)
+{
+    const ui_element* e11 = (const ui_element*)e1;
+    const ui_element* e22 = (const ui_element*)e2;
+    return (int)(e11->transform.scale.x - e22->transform.scale.x);  
+}
+
+int compare_elements_h(const void* e1, const void * e2)
+{
+    const ui_element* e11 = (const ui_element*)e1;
+    const ui_element* e22 = (const ui_element*)e2;
+    return (int)(e11->transform.scale.y - e22->transform.scale.y);  
+}
+
+
+void grow_sizing(ui_element* parent)
+{
+    if (!parent || !parent->childs_count) return;
+
+    bool horizontal = parent->create_data.childs.direction == HORIZONTAL;
+
+    f32 remain = (
+            horizontal ? 
+            parent->transform.scale.x - parent->create_data.childs.paddings.left - parent->create_data.childs.paddings.right : 
+            parent->transform.scale.y - parent->create_data.childs.paddings.bottom - parent->create_data.childs.paddings.top
+        ) - parent->sum_sizes - parent->create_data.childs.gap_main * (parent->childs_count - 1);
+
+    u32 number_of_growable = 0;
+    
+    ui_element* c = parent->first_child;
+    
+    while (c)
     {
-        h ^= (u64)(*k);
-        h *= prime;
-    }
-    return h;
-}
-
-static inline int _compare_child_func_(void*k1, void* k2)
-{
-    char* s1 = (char*)k1;
-    char* s2 = (char*)k2;
-    while (s1 && s2 && *s1 == *s2 && s1++ && s2++);
-    return *s1 - *s2;
-}
-
-// static void calculate_ui_layout(ui_page page)
-// {
-//     if (!page.root) return;
-
-//     struct pair {
-//         UI_element* e;
-//         u32 childs_idx;
-//     };
-
-//     dstack_t stack = dstack_create(64, sizeof(struct pair), NULL);
-//     struct pair p = (struct pair){ .e = &page.root, .childs_idx = 0 };
-//     dstack_push(stack, &p);
-
-//     f32 ww = (f32)get_window_width();
-//     f32 wh = (f32)get_window_height();
-
-//     page.root->transform = transform2D(vec2v(0.0F), vec2(ww, wh), 0.0F);
-
-//     while (!dstack_is_empty(stack))
-//     {
-//         UI_element* e;
-//         dstack_pop(stack, &e);
-//         if (!e) continue;
+        if (horizontal && c->create_data.self.width.type == SIZING_GROW)
+        {
+            number_of_growable++;
+        }
+        else if (!horizontal && c->create_data.self.height.type == SIZING_GROW)
+        {
+            number_of_growable++;
+        }
         
-//         dlinked_list_iter iter = { 0 };
-//         UI_element* c;
-//         while (dlinked_list_iterator_next(e->childs, &iter, &c))
-//         {
-//             dstack_push(stack, &c);
-//         }
+        if (horizontal && c->create_data.self.height.type == SIZING_GROW)
+        {
+            c->transform.scale.y = fminf(
+                c->create_data.self.height.max,
+                fmaxf(
+                    parent->max_element_size, 
+                    parent->transform.scale.y - parent->create_data.childs.paddings.top - parent->create_data.childs.paddings.bottom
+                )
+            );
+        }
+        else if (!horizontal && c->create_data.self.width.type == SIZING_GROW)
+        {
+            c->transform.scale.x = fminf(
+                c->create_data.self.width.max,
+                fmaxf(
+                    parent->max_element_size, 
+                    parent->transform.scale.x - parent->create_data.childs.paddings.left - parent->create_data.childs.paddings.right
+                )
+            );
+        }
         
-
-//     }
-// }
-
-static void _ui_element_append_child(UI_element* parent, UI_element* child)
-{
-    if (parent->childs == NULL)
-    {
-        parent->childs = dlinked_list_create(sizeof(UI_element*), NULL);
-    }
-    dlinked_list_push_back(parent->childs, &child);
-}
-
-static inline UI_element* _ui_page_find_element_(ui_page page, const char* name)
-{
-    UI_element* e = NULL;
-
-    dhash_table_get(page.elements_table, name, &e);
-
-    return e;
-}
-
-void ui_page_begin(const char* page_name)
-{
-    u64 hash = HASH(page_name, strlen(page_name));
-    ui_page page;
-    if (!dhash_table_get(context.pages_table, page_name, &page))
-    {
-        page = (ui_page){
-            .hash = hash,
-            .name = page_name,
-            .root = NULL
-        };
-
-        dhash_table_add(context.pages_table, page_name, &page);
-    }
-    context.curr_page = page;
-}
-
-void ui_page_end()
-{
-    if (context.curr_page.name) dhash_table_set(context.pages_table, context.curr_page.name, &context.curr_page);
-    context.curr_page = (ui_page){ 0 };
-    dstack_clear(context.stack);
-}
-
-void ui_element_begin(UI_type element_type, const char* element_name, ...)
-{
-    if (!context.curr_page.elements_table)
-    {
-        context.curr_page.elements_table = dhash_table_create(128, sizeof(UI_element*), HASH_TYPE_FNV1A, DHASH_COLLISION_RESOLUTION_TYPE_LINKED_LIST, NULL);
+        c = c->right_sibling;
     }
 
-    va_list args;
-    va_start(args, element_name);
-
-    if (!context.curr_page.name)
+    c =  parent->first_child;
+    if (remain > 0.0F && c)
     {
-        LOG_ERROR("UI - you can not insert an element without an active page.\n"
-                  "\tTry using ui_begin_page(\"page_name\") before calling this function again.\n"
-                  "All ui commands will be ignore until you bind a page as active."); 
-        return;
+        if (number_of_growable)
+        {
+            c = parent->first_child;
+            
+            ui_element** growables = UI_MALLOC(sizeof(ui_element*) * number_of_growable);
+            assert(growables);
+            
+            u32 idx = 0;
+            
+            while (c)
+            {
+                if (horizontal && c->create_data.self.width.type == SIZING_GROW)
+                {
+                    growables[idx++] = c;
+                }
+                else if (!horizontal && c->create_data.self.height.type == SIZING_GROW)
+                {
+                    growables[idx++] = c;
+                }
+                c = c->right_sibling;
+            }
+            
+            qsort(growables, number_of_growable, sizeof(ui_element*), horizontal ? compare_elements_w : compare_elements_h);
+            
+            while (remain >= 0.0001)
+            {
+                u32 count_of_min_val = 0;
+                f32 min_val = horizontal ? growables[ 0 ]->transform.scale.x : growables[ 0 ]->transform.scale.y; // TODO: this is not the min val it might !can_grow
+                f32 next_val = min_val;
+                
+                for (u32 i = 0; i < number_of_growable; i++)    
+                {
+                    bool can_grow = (horizontal && (growables[ i ]->create_data.self.width.max > growables[ i ]->transform.scale.x)) ||
+                        (!horizontal && (growables[ i ]->create_data.self.height.max > growables[ i ]->transform.scale.y));
+
+                    if (
+                        (
+                            (horizontal && growables[ i ]->transform.scale.x <= min_val) || 
+                            (!horizontal && growables[ i ]->transform.scale.y <= min_val)
+                        ) && can_grow
+                    ) 
+                        count_of_min_val++;
+
+                }
+
+                if (!count_of_min_val) break;
+                
+                f32 amount = fminf(remain, (next_val - min_val) * count_of_min_val);
+
+                if (next_val == min_val) amount = remain;
+                bool anyone_grew = false;
+                
+                for (u32 i = 0; i < number_of_growable; i++)    
+                {
+                    if (
+                        (horizontal && growables[ i ]->transform.scale.x == min_val) ||
+                        (!horizontal && growables[ i ]->transform.scale.y == min_val)
+                    ) 
+                    {
+                        bool can_grow = (horizontal && (growables[ i ]->create_data.self.width.max > growables[ i ]->transform.scale.x)) ||
+                            (!horizontal && (growables[ i ]->create_data.self.height.max > growables[ i ]->transform.scale.y));
+                        if (horizontal && can_grow) 
+                        {
+                            anyone_grew = true;
+                            if (horizontal)
+                                growables[ i ]->transform.scale.x += amount / count_of_min_val;
+                            else
+                                growables[ i ]->transform.scale.y += amount / count_of_min_val;
+
+                        }
+                        else if(can_grow) growables[ i ]->transform.scale.y += amount / count_of_min_val;
+                    }
+                }
+
+                if (!anyone_grew) break;
+
+                parent->sum_sizes += amount;
+                
+                remain -= amount;
+            }
+        } 
     }
     
-    UI_element* e;
-
-    if (dhash_table_get(context.curr_page.elements_table, element_name, &e))
+    c = parent->first_child;
+    
+    while (c)
     {
-        switch (element_type)
-        {
-            case UI_TYPE_BUTTON: 
-            {
-                UI_button_style style = va_arg(args, UI_button_style);
-                UNUSED(style);
-                // ....
-                
-            } break;
-            case UI_TYPE_PANEL: 
-            {
-                UI_panel_style style = va_arg(args, UI_panel_style);
+        grow_sizing(c);
+        c = c->right_sibling;
+    }
+}
+  
 
-                AS_PANEL(e)->element.type = UI_TYPE_PANEL;
-                AS_PANEL(e)->element.ID.key = element_name;
-                AS_PANEL(e)->element.ID.hash = HASH(element_name, strlen(element_name));
-                AS_PANEL(e)->element.childs = NULL;
-                AS_PANEL(e)->element.childs_count = 0;
-                AS_PANEL(e)->style = style;
-                
-                // ....
-                
-            } break;
-            default: break;
+  
+void ui_element_begin(dstr_t name, ui_element_type type, ui_create_data create_data)
+{
+    ui_element* new_elem = (ui_element*)UI_MALLOC(sizeof(ui_element));
+    assert(new_elem);
+    
+    new_elem->name             = name;
+    new_elem->first_child      = NULL;
+    new_elem->right_sibling    = NULL;
+    new_elem->type             = type;
+    new_elem->create_data      = create_data;
+    new_elem->parent           = CTX.curr_elem;
+    new_elem->childs_count     = 0;
+    new_elem->transform        = (transform2D_s){ 0 };
+    new_elem->max_element_size = 0.0F;
+    new_elem->sum_sizes        = 0.0F;
+    // TODO: continue
+
+    if (!CTX.curr_elem) 
+    {
+        CTX.curr_elem = new_elem;
+        return;  
+    }
+
+    ui_element* p = CTX.curr_elem->first_child;
+    CTX.curr_elem->childs_count++;
+
+    if (!p) {
+        CTX.curr_elem->first_child = new_elem;
+        CTX.curr_elem = new_elem;
+        return;
+    }
+
+    while(p->right_sibling) p = p->right_sibling;
+
+    p->right_sibling = new_elem;
+    CTX.curr_elem = new_elem;
+}
+
+
+
+
+void ui_element_end(void)
+{
+    ui_element* parent = CTX.curr_elem->parent;
+    if (!parent) return;
+
+    bool horizontal = CTX.curr_elem->create_data.childs.direction == HORIZONTAL;
+
+    const f32 horizontal_paddings = 
+        CTX.curr_elem->create_data.childs.paddings.left + 
+        CTX.curr_elem->create_data.childs.paddings.right;
+    const f32 vertical_paddings = 
+        CTX.curr_elem->create_data.childs.paddings.bottom + 
+        CTX.curr_elem->create_data.childs.paddings.top;
+    const f32 main_extra =  (horizontal && CTX.curr_elem->childs_count) ? 
+            (CTX.curr_elem->childs_count - 1) * CTX.curr_elem->create_data.childs.gap_main : 0.0F;
+
+    if (horizontal)
+    {
+        if (CTX.curr_elem->create_data.self.width.type != SIZING_FIXED)
+        {
+            CTX.curr_elem->create_data.self.width.min = fmaxf(
+                CTX.curr_elem->create_data.self.width.min, 
+                CTX.curr_elem->sum_sizes + (CTX.curr_elem->childs_count ? horizontal_paddings : 0.0F) + main_extra 
+            );
+        }
+        else
+        {
+            CTX.curr_elem->create_data.self.width.min = CTX.curr_elem->create_data.self.width.value;
+        }
+
+        if (CTX.curr_elem->create_data.self.height.type != SIZING_FIXED)
+        {
+            CTX.curr_elem->create_data.self.height.min = fmaxf(
+                CTX.curr_elem->create_data.self.height.min, 
+                CTX.curr_elem->max_element_size + (CTX.curr_elem->childs_count ? vertical_paddings : 0.0F)
+            );    
+        }
+        else
+        {
+            CTX.curr_elem->create_data.self.height.min = CTX.curr_elem->create_data.self.height.value;
         }
     }
     else
     {
-        switch (element_type)
+        if (CTX.curr_elem->create_data.self.width.type != SIZING_FIXED)
         {
-            case UI_TYPE_BUTTON: 
-            {
-                e = UI_MALLOC(sizeof(UI_button));
-                UI_button_style style = va_arg(args, UI_button_style);
-                UNUSED(style);
-                // ....
-                
-            } break;
-            case UI_TYPE_PANEL: 
-            {
-                e = UI_MALLOC(sizeof(UI_panel));
-                UI_panel_style style = va_arg(args, UI_panel_style);
-                
-                AS_PANEL(e)->element.type = UI_TYPE_PANEL;
-                AS_PANEL(e)->element.ID.key = element_name;
-                AS_PANEL(e)->element.ID.hash = HASH(element_name, strlen(element_name));
-                AS_PANEL(e)->element.childs = NULL;
-                AS_PANEL(e)->element.childs_count = 0;
-                AS_PANEL(e)->style = style;
-                e->transform = transform2D(
-                    vec2(0,0), 
-                    vec2(100,100),
-                    0
-                );
-                
-                // ....
-                
-            } break;
-            default: break;
+            CTX.curr_elem->create_data.self.width.min = fmaxf(
+                CTX.curr_elem->create_data.self.width.min, 
+                CTX.curr_elem->max_element_size + (CTX.curr_elem->childs_count ? horizontal_paddings : 0.0F)
+            );    
+        }
+        else
+        {
+            CTX.curr_elem->create_data.self.width.min = CTX.curr_elem->create_data.self.width.value;
+        }
+        
+        if (CTX.curr_elem->create_data.self.height.type != SIZING_FIXED)
+        {
+            CTX.curr_elem->transform.scale.x = fmaxf(
+                CTX.curr_elem->create_data.self.height.min, 
+                CTX.curr_elem->sum_sizes +  (CTX.curr_elem->childs_count ? vertical_paddings : 0.0F) + main_extra
+            );
+        }
+        else
+        {
+            CTX.curr_elem->create_data.self.height.min = CTX.curr_elem->create_data.self.height.value;
         }
     }
 
-    if (!context.curr_page.root)
-    {
-        context.curr_page.root = e;
-    }
+    CTX.curr_elem->transform.scale.x = fminf(
+        fmaxf(
+            CTX.curr_elem->create_data.self.width.value,
+            CTX.curr_elem->create_data.self.width.min
+        ),
+        CTX.curr_elem->create_data.self.width.max
+    );
+    CTX.curr_elem->transform.scale.y = fminf(
+        fmaxf(
+            CTX.curr_elem->create_data.self.height.value, 
+            CTX.curr_elem->create_data.self.height.min
+        ),
+        CTX.curr_elem->create_data.self.height.max
+    );
 
+    bool p_horizontal = parent->create_data.childs.direction == HORIZONTAL;
 
-    dhash_table_add(context.curr_page.elements_table, e->ID.key, &e);
+    parent->sum_sizes +=  p_horizontal ? CTX.curr_elem->transform.scale.x : CTX.curr_elem->transform.scale.y;
+
+    parent->max_element_size = fmaxf(
+        parent->max_element_size, 
+        (p_horizontal ? CTX.curr_elem->transform.scale.y : CTX.curr_elem->transform.scale.x) 
+    );
+
+    if (CTX.curr_elem && CTX.curr_elem->parent)
+        CTX.curr_elem = CTX.curr_elem->parent;
+}
+
+static void calc_positions(ui_element* root)
+{
+    const bool horizontal = root->create_data.childs.direction == HORIZONTAL; 
+    const bool vertical = !horizontal;
     
-    if (context.head)
-    {
-        _ui_element_append_child(context.head, e);
-        dstack_push(context.stack, context.head);
-    }
+    const f32 total_main_size = root->childs_count ? root->sum_sizes + (root->childs_count - 1) * root->create_data.childs.gap_main : 0.0F;  
+    const f32 remain_main = horizontal ? 
+        root->transform.scale.x - root->create_data.childs.paddings.left - root->create_data.childs.paddings.right - total_main_size :
+        root->transform.scale.y - root->create_data.childs.paddings.top - root->create_data.childs.paddings.bottom - total_main_size;
+    // const f32 remain_cross = vertical ? 
+    //     root->transform.scale.x - root->create_data.childs.paddings.left - root->create_data.childs.paddings.right - root->max_element_size :
+    //     root->transform.scale.y - root->create_data.childs.paddings.top - root->create_data.childs.paddings.bottom - root->max_element_size;
 
-    context.head = e;
+    // TODO: consider layouts - End, Start, Center etc
+    const f32 start_main = horizontal 
+        ? 
+        root->transform.position.x +
+        (
+            root->create_data.childs.align_main == CENTER ? (root->transform.scale.x - total_main_size) * 0.5F :
+            root->create_data.childs.align_main == START ? root->create_data.childs.paddings.left : 
+            root->create_data.childs.align_main == END ? root->transform.scale.x - root->create_data.childs.paddings.right - total_main_size : 
+            root->create_data.childs.align_main == SPACE_AROUND ? root->create_data.childs.paddings.left + remain_main / (root->childs_count + 1) : 
+            root->create_data.childs.paddings.left
+        ) 
+        : 
+        root->transform.position.y +
+        (
+            root->create_data.childs.align_main == CENTER ? (root->transform.scale.y - total_main_size) * 0.5F :
+            root->create_data.childs.align_main == START ? root->create_data.childs.paddings.top : 
+            root->create_data.childs.align_main == END ? root->transform.scale.y - root->create_data.childs.paddings.bottom - total_main_size : 
+            root->create_data.childs.align_main == SPACE_AROUND ? root->create_data.childs.paddings.top + remain_main / (root->childs_count + 1) : 
+            root->create_data.childs.paddings.top
+        );
+
+    const f32 start_cross = horizontal 
+        ? 
+        root->transform.position.y +
+        (
+            root->create_data.childs.align_cross == CENTER ? (root->transform.scale.y * 0.5F) :
+            root->create_data.childs.align_cross == START ? (root->create_data.childs.paddings.top) :
+            root->create_data.childs.align_cross == END ? (root->transform.scale.y - root->create_data.childs.paddings.bottom) :
+            root->create_data.childs.paddings.top
+        )
+        :
+        root->transform.position.x +
+        (
+            root->create_data.childs.align_cross == CENTER ? (root->transform.scale.x * 0.5F) :
+            root->create_data.childs.align_cross == START ? (root->create_data.childs.paddings.left) :
+            root->create_data.childs.align_cross == END ? (root->transform.scale.x - root->create_data.childs.paddings.right) : 
+            root->create_data.childs.paddings.left
+        );
+
+    // const f32 root_main_scale = horizontal ? root->transform.scale.x : root->transform.scale.y;
+
+    f32 offset_main = start_main;
+    f32 offset_cross = start_cross;
+    f32 max_cross = 0.0F;
+
+    ui_element* c = root->first_child;
+    while (c)
+    {
+
+        f32 advance_main = (horizontal ? c->transform.scale.x : c->transform.scale.y); 
+        
+        // if (offset_main + advance_main> root_main_scale + start_main) // TODO: add padding end
+        // {
+        //     offset_cross += max_cross + root->create_data.childs.gap_cross.value;
+        //     offset_main = start_main;
+        // }
+        
+        max_cross = fmaxf(max_cross, (vertical ? c->transform.scale.x : c->transform.scale.y));
+
+        c->transform.position.x = (horizontal) ? offset_main : 
+            root->create_data.childs.align_cross == CENTER ? offset_cross - c->transform.scale.x * 0.5F :
+            root->create_data.childs.align_cross == START ? offset_cross :
+            root->create_data.childs.align_cross == END ? offset_cross - c->transform.scale.x : 
+            offset_cross;
+        
+        c->transform.position.y = (vertical)   ? offset_main : 
+            root->create_data.childs.align_cross == CENTER ? offset_cross - c->transform.scale.y * 0.5F :
+            root->create_data.childs.align_cross == START ? offset_cross :
+            root->create_data.childs.align_cross == END ? offset_cross - c->transform.scale.y : 
+            offset_cross;
+        
+        offset_main += root->create_data.childs.gap_main + advance_main + 
+            (
+                root->create_data.childs.align_main == SPACE_BETWEEN  && root->childs_count ? remain_main / (root->childs_count - 1) : 
+                root->create_data.childs.align_main == SPACE_AROUND ? remain_main / (root->childs_count + 1) : 
+                0.0F 
+            ); // TODO:
+
+        calc_positions(c);
+
+        c = c->right_sibling;
+    }
 }
 
-void ui_element_end(void)
+void calc_ui(void /* page */)
 {
-    if (context.head) // Silent error otherwise [ On multiple calls to ui_element_end ]
-    {
-        UI_element* new_head = NULL;
-        dstack_pop(context.stack, new_head);
-        context.head = new_head;
-    }
+    ui_element* root = CTX.curr_elem; // TODO: change - page->root
+    if (!root) return;
+    
+    root->transform.scale.x = get_window_width();
+    root->transform.scale.y = get_window_height();
+    root->create_data.self.width.value = root->transform.scale.x; 
+    root->create_data.self.height.value = root->transform.scale.y; 
+    root->create_data.self.width.min = root->transform.scale.x; 
+    root->create_data.self.width.max = root->transform.scale.x; 
+    root->create_data.self.height.min = root->transform.scale.y; 
+    root->create_data.self.height.max = root->transform.scale.y; 
+    
+    grow_sizing(root);
+    calc_positions(root);
 }
 
-void ui_element_begin_and_end(UI_type element_type, const char* element_name, ...);
-
-void ui_edit_element_begin(const char* element_name)
+void ui_draw(ui_element* root)
 {
-    if (!context.curr_page.name)
+    if(root->create_data.self.visible)
     {
-        LOG_ERROR("UI - you can not insert an element without an active page.\n"
-                  "\tTry using ui_begin_page(\"page_name\") before calling this function again.\n"
-                  "All ui commands will be ignore until you bind a page as active."); 
-        return;
+        render_system_draw(
+            DRAWABLE_TYPE_QUAD, 
+            root->transform,
+            Z_INDEX_0,
+            root->create_data.style
+        );
     }
-
-    UI_element* e = _ui_page_find_element_(context.curr_page, element_name);
-    if (!e)
-    {
-        LOG_ERROR("You provided to ui_edit_element_begin an element name which does not exist in the current page.");
-        return;
-    }
-
+    if (root->right_sibling) ui_draw(root->right_sibling);
+    if (root && root->first_child) ui_draw(root->first_child);
+    
+    
 }
 
-void ui_edit_element_end(void);
+void ui_end_frame(void)
+{
+    calc_ui();
+    ui_draw(CTX.curr_elem);
+    darena_clear(CTX.arena);    
+    CTX.curr_elem = NULL;
+    render_system_render();
+}
 
 void ui_init(void)
 {
-    context.pages_table = dhash_table_create(32, sizeof(ui_page), HASH_TYPE_FNV1A, DHASH_COLLISION_RESOLUTION_TYPE_LINKED_LIST, NULL);
     render_system_init();
+    CTX.arena = darena_create(DARENA_TYPE_LINEAR, DKB(10));
+    CTX.curr_elem = NULL;
 }
 
 void ui_shutdown(void)
 {
+    darena_destroy(CTX.arena);
     render_system_shutdown();
-}
-
-static void draw_ui_panel(UI_panel panel, transform2D_s transform)
-{
-    render_system_draw(
-            DRAWABLE_TYPE_QUAD,
-            transform,
-            Z_INDEX_0,
-            panel.style.style  
-        );
-    
-}
-
-static void draw_ui_button(UI_button button, transform2D_s transform)
-{
-    UNUSED(button); UNUSED(transform);
-}
-
-
-void ui_render(const char* page_name)
-{
-    if(!dhash_table_get(context.pages_table, page_name, &context.curr_page))
-    {
-        return;
-    }
-    dqueue_t queue = dqueue_create(128, sizeof(UI_element*), NULL);
-    dqueue_push(&queue, &context.curr_page.root);
-    
-    while (dqueue_len(queue))
-    {
-        UI_element* n = NULL;
-        if (dqueue_pop(queue, &n) && !n) continue;
-    
-        dlinked_list_iter iter = { 0 };
-        
-        UI_element* c;
-        
-        while (dlinked_list_iterator_next(n->childs, &iter, &c))
-        {
-            dqueue_push(&queue, &c);
-        }
-    
-        switch (n->type)
-        {
-            case UI_TYPE_PANEL: draw_ui_panel(*AS_PANEL(n), n->transform); break;
-            case UI_TYPE_BUTTON: draw_ui_button(*AS_BUTTON(n), n->transform); break;
-            default: UNREACHABLE("NOT - SUPPORTED");
-        }
-    }
-    
-    dqueue_destroy(queue);
-
-    render_system_render();
-}
-
-void ui_update(f32 delta_time)
-{
-    UNUSED(delta_time);
 }

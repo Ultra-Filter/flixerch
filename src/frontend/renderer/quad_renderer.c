@@ -5,7 +5,7 @@
 
 #define QUAD_RENDERER_VS_PATH "assets/shaders/quad.vs"
 #define QUAD_RENDERER_FS_PATH "assets/shaders/quad.fs"
-#define QUAD_RENDERER_MAX_QUADS_COUNT 128
+#define QUAD_RENDERER_MAX_QUADS_COUNT 512
 
 /*
     Vertex attributes:

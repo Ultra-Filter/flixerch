@@ -1,11 +1,11 @@
 #pragma once
-#include "core/utils/defines.h"
+#include "../defines.h"
 
-typedef struct hash_tabel_mem_allocator {
+typedef struct hash_table_mem_allocator {
     void* (*allocate)(u64);
     void* (*reallocate)(void*, u64);
     void (*free)(void*);
-} dhash_tabel_mem_allocator;
+} dhash_table_mem_allocator;
 
 typedef enum dhash_collision_resolution_type {
     DHASH_COLLISION_RESOLUTION_TYPE_LINKED_LIST, // https://en.wikipedia.org/wiki/Hash_table#Separate_chaining
@@ -25,6 +25,8 @@ typedef enum dhash_type_e {
 } dhash_type_e;
 
 typedef struct dhash_table_t dhash_table_t;
+typedef struct dhash_table_iter_t dhash_table_iter_t;
+
 typedef struct dhash_table_iter {
     dhash_table_t* table;
     u64 index;
@@ -36,24 +38,29 @@ dhash_table_t* dhash_table_create(
     u32 value_size_in_bytes, 
     dhash_type_e hash_type, 
     dhash_collision_type collision_resolution_type,
-    dhash_tabel_mem_allocator* allocator
+    dhash_table_mem_allocator* allocator
 );
 
-void dhash_table_destroy(dhash_table_t*table);
-bool dhash_table_add (dhash_table_t* table, const char* key, void* value);
-bool dhash_table_remove (dhash_table_t* table, const char* key);
-bool dhash_table_get    (dhash_table_t* table, const char* key, void* out_value);
-bool dhash_table_set    (dhash_table_t* table, const char* key, void* new_value);
-bool dhash_table_is_exists(dhash_table_t* table, const char* key);
+void dhash_table_destroy    (dhash_table_t*table);
+bool dhash_table_add        (dhash_table_t* table, const char* key, void* value);
+bool dhash_table_remove     (dhash_table_t* table, const char* key);
+bool dhash_table_get        (dhash_table_t* table, const char* key, void* out_value);
+bool dhash_table_set        (dhash_table_t* table, const char* key, void* new_value);
+bool dhash_table_is_exists  (dhash_table_t* table, const char* key);
+u32  dhash_table_count      (dhash_table_t* table);
 
-#if defined(DHASH_TABLE_IMPLEMENTATION) 
+dhash_table_iter_t* dhash_table_iter_create  (dhash_table_t* table);
+bool                dhash_table_iter_next    (dhash_table_iter_t* iter, void* out_val);
+void                dhash_table_iter_destroy (dhash_table_iter_t* iter);
+
+#if defined(DHASH_TABLE_IMPLEMENTATION)
 
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 
 #define _DHASH_LINKED_CHAIN_GET_ENTRY(t,i) *((dhash_chain_entry**)((u8*)BLOCK_FROM_TABLE(t) + i * sizeof(dhash_chain_entry*)))
-#define DEFAULT_HASH_TABLE_ALLOCATOR (dhash_tabel_mem_allocator){ .allocate = malloc, .reallocate = realloc, .free =  free }
+#define DEFAULT_HASH_TABLE_ALLOCATOR (dhash_table_mem_allocator){ .allocate = malloc, .reallocate = realloc, .free =  free }
 #define BLOCK_FROM_TABLE(t) (u8*)((t) + 1)
 #define TABLE_JUMP_TO(t, i) (u8*)(BLOCK_FROM_TABLE(t) + (i) * ( t->type_size + sizeof(bool) )) 
 
@@ -61,8 +68,9 @@ typedef struct dhash_table_t {
     dhash_type_e type;
     dhash_collision_type collision_type;
     u32 value_size;
-    dhash_tabel_mem_allocator allocator;
+    dhash_table_mem_allocator allocator;
     u64 capacity;
+    u32 count;
 } dhash_table_t;
 
 typedef struct dhash_chain_entry {
@@ -71,12 +79,20 @@ typedef struct dhash_chain_entry {
     u64 hash;
     struct dhash_chain_entry* next;
 } dhash_chain_entry;
+
 typedef struct dhash_addressing_entry {
     char * key;
     void* value;
     u64 hash;
     struct dhash_addressing_entry* next;
 } dhash_addressing_entry;
+
+typedef struct dhash_table_iter_t
+{
+    dhash_table_t* table;
+    u32 next_index;
+    void* curr_entry;
+} dhash_table_iter_t;
 
 static u64 _DHASH_(dhash_type_e type ,const char* key)
 {
@@ -177,7 +193,7 @@ static u64 _DHASH_(dhash_type_e type ,const char* key)
     return h;
 }
 
-static inline dhash_table_t* _dhash_linked_chain_create_(u64 capacity, u32 value_size, dhash_tabel_mem_allocator allocator)
+static inline dhash_table_t* _dhash_linked_chain_create_(u64 capacity, u32 value_size, dhash_table_mem_allocator allocator)
 {
     dhash_table_t* table;
     table = (dhash_table_t*)allocator.allocate(sizeof(dhash_table_t) + capacity * sizeof(dhash_chain_entry*));
@@ -185,6 +201,7 @@ static inline dhash_table_t* _dhash_linked_chain_create_(u64 capacity, u32 value
     table->allocator = allocator;
     table->capacity = capacity;
     table->value_size = value_size;
+    table->count = 0;
 
     memset(BLOCK_FROM_TABLE(table), 0, capacity * sizeof(dhash_chain_entry*));
 
@@ -251,6 +268,7 @@ static inline bool _dhash_linked_chain_insert_(dhash_table_t* table, const char 
     entry->next  = NULL;
     entry->value = table->allocator.allocate(table->value_size);
     memcpy(entry->value, value, table->value_size);
+    table->count++;
 
     _DHASH_LINKED_CHAIN_GET_ENTRY(table, hash) = entry;
     
@@ -283,6 +301,7 @@ static inline bool _dhash_linked_chain_delete_(dhash_table_t* table, const char 
             table->allocator.free(entry);
             entry = NULL;
         }
+        table->count--;
         return true;
     }
     
@@ -296,6 +315,7 @@ static inline bool _dhash_linked_chain_delete_(dhash_table_t* table, const char 
         if (temp->key) table->allocator.free(temp->key);
         table->allocator.free(temp);
         return true;
+        table->count--;
     }
     
     return false;
@@ -366,9 +386,9 @@ bool _dhash_linked_chain_is_exists_(dhash_table_t* table, const char* key)
     return true;
 }
 
-dhash_table_t* dhash_table_create(u64 capacity, u32 value_size, dhash_type_e hash_type, dhash_collision_type collision_type, dhash_tabel_mem_allocator* _allocator)
+dhash_table_t* dhash_table_create(u64 capacity, u32 value_size, dhash_type_e hash_type, dhash_collision_type collision_type, dhash_table_mem_allocator* _allocator)
 {
-    dhash_tabel_mem_allocator allocator = _allocator != NULL ? *_allocator : DEFAULT_HASH_TABLE_ALLOCATOR;
+    dhash_table_mem_allocator allocator = _allocator != NULL ? *_allocator : DEFAULT_HASH_TABLE_ALLOCATOR;
     dhash_table_t* table;
     
     switch (collision_type)
@@ -440,6 +460,78 @@ inline bool dhash_table_is_exists(dhash_table_t *table, const char *key)
         default: assert(0 && "UNREACHABLE - unrecognized hash collision type."); return false; // UNREACHABLE
     }
     return false;
+}
+
+inline u32 dhash_table_count(dhash_table_t *table)
+{
+    return table->count;
+}
+
+inline dhash_table_iter_t *dhash_table_iter_create(dhash_table_t *table)
+{
+    if (!table) return NULL;
+    dhash_table_iter_t* iter = table->allocator.allocate(sizeof(dhash_table_iter_t));
+    switch (table->collision_type)
+    {
+        case DHASH_COLLISION_RESOLUTION_TYPE_LINKED_LIST:
+        {
+            iter->next_index = 0;
+            iter->table = table;
+            iter->curr_entry = NULL;
+        } break;
+        case DHASH_COLLISION_RESOLUTION_TYPE_OPEN_ADDRESSING: break; // TODO:
+        default: assert(0 && "UNREACHABLE - unrecognized hash collision type."); break; // UNREACHABLE
+    }
+    return iter;
+}
+
+bool dhash_table_iter_next(dhash_table_iter_t *iter, void *out_val)
+{
+    if (!iter || !out_val) return false;
+        
+    switch (iter->table->collision_type)
+    {
+        case DHASH_COLLISION_RESOLUTION_TYPE_LINKED_LIST: 
+        {
+            if (iter->curr_entry != NULL)
+            {
+                dhash_chain_entry* entry = (dhash_chain_entry*)iter->curr_entry;
+                if (entry->next != NULL)
+                {
+                    iter->curr_entry = entry->next;
+                    entry = (dhash_chain_entry*)iter->curr_entry;
+                    memcpy(out_val, entry->value, iter->table->value_size);
+                    return true;
+                }
+                iter->curr_entry = NULL;
+            }
+
+            while (iter->next_index < iter->table->capacity && !iter->curr_entry)
+            {
+                iter->curr_entry = _DHASH_LINKED_CHAIN_GET_ENTRY(iter->table, iter->next_index++);
+            }
+
+            if (iter->curr_entry)
+            {
+                dhash_chain_entry* entry = (dhash_chain_entry*)iter->curr_entry;
+                memcpy(out_val, entry->value, iter->table->value_size);
+                return true;
+            }
+
+        } break;
+        case DHASH_COLLISION_RESOLUTION_TYPE_OPEN_ADDRESSING: break; // TODO:
+        default: assert(0 && "UNREACHABLE - unrecognized hash collision type."); break; // UNREACHABLE
+    }
+
+    return false;
+}
+
+inline void dhash_table_iter_destroy(dhash_table_iter_t *iter)
+{
+    if (iter)
+    {
+        iter->table->allocator.free(iter);
+    }
 }
 
 void dhash_table_destroy(dhash_table_t*table)
