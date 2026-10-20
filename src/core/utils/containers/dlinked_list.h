@@ -239,13 +239,13 @@ inline u32 dlinked_list_len(dlinked_list_t list)
 
 bool dlinked_list_iterator_next(dlinked_list_t list, dlinked_list_iter* iter, void* out_val)
 {
-    if (!iter->entry && !iter->init) 
+    if (iter && !iter->entry && !iter->init) 
     { 
         if (!list) return false;
         iter->entry = list->head;
         iter->init = true;
     }
-    if (!iter->entry) return false;
+    if (!iter || !iter->entry) return false;
 
     if (out_val) memcpy(out_val, iter->entry->value, list->item_size_in_bytes);
     iter->entry = iter->entry->next;
