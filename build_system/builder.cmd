@@ -29,7 +29,7 @@ if  "%1"=="d"  (
     set flags=-Wall -Wextra -Wno-unused-function -Wno-int-to-pointer-cast
     set defines=-D_DEBUG
     set output=build\debug\main.exe
-    set build_flags=-ggdb
+    set build_flags=-ggdb 
 ) 
 if "%1"=="r" (
     echo ==============================================
@@ -51,9 +51,10 @@ if "%1"=="l" (
     set release_flags=
     set build_flags=-shared -g
 )
-REM echo %compiler% -o %output% %build_flags% %sources% %include% -static %libs% %libs_flags% %defines% %flags%
+
+call %compiler% -o %output% %build_flags% %sources% %include% -static %libs% %libs_flags% %defines% %flags%
  
-call %compiler% -o %output% %build_flags% %sources% %include% -static %libs% %libs_flags% %defines% %flags% %release_flags%
+@REM  call %compiler% -o %output% %build_flags% %sources% %include% -static %libs% %libs_flags% %defines% %flags% %release_flags%
 
 if %ERRORLEVEL% neq 0 (
     echo Build failed
