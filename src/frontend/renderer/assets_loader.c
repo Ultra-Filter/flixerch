@@ -25,7 +25,7 @@ bool asset_loader_create_texture_from_pixels(u8* pixels, u32 width, u32 height, 
 
 bool asset_loader_create_texture_from_file(const char* image_path, u32* out_tex_id)
 {
-    s32 width, height, channels; 
+    i32 width, height, channels; 
     stbi_set_flip_vertically_on_load(true); // should be passed as argument ?
     u8* pixels = stbi_load(image_path, &width, &height, &channels, STBI_rgb_alpha);
 

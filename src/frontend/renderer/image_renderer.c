@@ -44,7 +44,7 @@ static u8 context_is_tex_exists(u32 tex, z_index_type_e depth)
 
 void image_renderer_init(void)
 {
-    s32 max_texture_units;
+    i32 max_texture_units;
     glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &max_texture_units);
     LOG_INFO("Max texture units on your machine: %d", max_texture_units);
     assert(max_texture_units >= 32);
@@ -131,7 +131,7 @@ void image_renderer_init(void)
 
 
     bool success = asset_loader_create_shader_from_file(IMAGE_RENDERER_VS_PATH, IMAGE_RENDERER_FS_PATH, &context.shader);
-    if(!success) LOG_ERROR("Image renderer could not be initilized because shader compilation failed.");
+    if(!success) {LOG_ERROR("Image renderer could not be initilized because shader compilation failed.");}
 
     glUseProgram(context.shader);
     for (u32 i = 0; i < 32; i++)

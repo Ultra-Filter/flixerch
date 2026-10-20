@@ -303,7 +303,7 @@ bool window_init(u32 width, u32 height, const char* title)
     glfwSetCharModsCallback(_window.handle, window_char_mods_callback);
 
     GLFWimage images[1];
-    s32 c;
+    i32 c;
     images[0].pixels = stbi_load("assets/images/icon.png", &images[0].width, &images[0].height, &c, 4);
     if (images[0].pixels)
     {
