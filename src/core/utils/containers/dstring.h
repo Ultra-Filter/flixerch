@@ -156,7 +156,7 @@ bool           dstr_reader_read_and_skip_bool(dstr_reader_t reader, bool* out);
 
 #define dstrlen(dstr) (*(((const u64*)(dstr)) - 1))
        
-#if defined(DSTRING_IMPLEMENTATION) || 1
+#if defined(DSTRING_IMPLEMENTATION) 
 
 #include <stdarg.h>
 #include <string.h>
@@ -1286,7 +1286,7 @@ bool dstr_reader_check_and_skip_chars(dstr_reader_t reader, const char *chars, u
 {
     if (reader && reader->curr && chars && reader->curr + count <= reader->end)
     {
-        char * ptr = chars;
+        const char * ptr = chars;
         bool OK = true; u32 i = 0;
         char* p = reader->curr;
         while (p < reader->end && i++ < count)
@@ -1342,7 +1342,7 @@ void dstr_reader_go_back(dstr_reader_t reader, u32 amount)
 {
     if (reader && reader->curr)
     {
-        reader->curr = (u32)(reader->curr - reader->data) >= amount ? reader->curr - amount : reader->data;
+        reader->curr = (u32)(reader->curr - reader->data) >= amount ? reader->curr - amount : reader->curr - (u32)(reader->curr - reader->data);
     }
 }
 
