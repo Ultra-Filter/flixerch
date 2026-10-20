@@ -474,6 +474,7 @@ void ui_draw(ui_element* root)
 
 void ui_end_frame(void)
 {
+    if (!CTX.curr_elem) return;
     calc_ui();
     ui_draw(CTX.curr_elem);
     darena_clear(CTX.arena);    
